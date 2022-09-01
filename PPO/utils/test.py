@@ -185,5 +185,29 @@ def test13():
     print(f)
 
 
+def test14():
+    sa_r = np.load('../log/reward//sa_rlog1.npy')
+    ra_r = np.load('../log/reward/ra_rlog1.npy')
+    fig, axes = plt.subplots(1, 2)
+    axes[0].set_title('SA')
+    axes[0].set_xlabel('episode')
+    axes[0].set_ylabel('reward')
+    axes[0].plot(range(len(sa_r)), sa_r, color='green')
+
+    axes[1].set_title('RA')
+    axes[1].set_xlabel('episode')
+    axes[1].plot(range(len(ra_r)), ra_r, color='orange')
+    plt.show()
+
+
+def test15():
+
+    x = torch.randn(2, 3)
+    print(x)
+    tanh = torch.nn.Tanh()
+    out = tanh(x)
+    print(out)
+
+
 if __name__ == '__main__':
-    test13()
+    test15()

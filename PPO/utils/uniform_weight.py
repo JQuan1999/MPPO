@@ -4,7 +4,7 @@ from itertools import combinations
 from scipy.special import comb
 
 
-def init_weight(weight_size, objective):
+def init_weight(weight_size, objective, low_bound=0.1):
     h1 = 1
     while comb(h1 + objective - 1, objective - 1) <= weight_size:
         h1 = h1 + 1
@@ -30,7 +30,13 @@ def init_weight(weight_size, objective):
                    np.hstack((np.zeros((temp.shape[0], 1)), weight_vector))
             temp = (temp - 1) / h2
             weight_vector = np.vstack((weight_vector, temp))
-    weight_vector[weight_vector < 1e-6] = 1e-6
+    weight_size = weight_vector.shape[0]
+    flag = np.ones(weight_size).astype(bool)
+    for i in range(weight_size):
+        w = weight_vector[i]
+        if len(np.where(w < low_bound)[0]) != 0:
+            flag[i] = False
+    weight_vector = weight_vector[flag]
     weight_size = weight_vector.shape[0]
     return weight_vector, weight_size
 
@@ -45,6 +51,7 @@ def cweight(weight, env=None, sa=None, ra=None):
     if ra is not None:
         ra.cweight(w)
     return w
+
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt

@@ -27,20 +27,20 @@ def EDD(jobs, t):
 # 否则 max cr = over_time / remain
 def CR(jobs, t):
     cr = np.zeros(len(jobs))
-    no_tardy = np.array([True if j.get_tardiness(t) == 0 else False for j in jobs.tolist()])
-    if no_tardy.sum() != 0:
-        for i in range(len(jobs)):
-            ttd = jobs[i].due_date - jobs[i].arrival_t
-            remain = jobs[i].get_remain_pt()
-            cr[i] = ttd / remain
-        index = np.argmin(cr)
-        return index
-    else:
+    tardy = np.array([True if j.get_tardiness(t) != 0 else False for j in jobs.tolist()])
+    if tardy.sum() != 0:
         for i in range(len(jobs)):
             over_time = jobs[i].get_tardiness(t)
             remain = jobs[i].get_remain_pt()
             cr[i] = over_time / remain
         index = np.argmax(cr)
+        return index
+    else:
+        for i in range(len(jobs)):
+            ttd = jobs[i].due_date - jobs[i].arrival_t
+            remain = jobs[i].get_remain_pt()
+            cr[i] = ttd / remain
+        index = np.argmin(cr)
         return index
 
 

@@ -5,7 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import time
-from model.model import Actor,Critic
+from model import Actor, Critic
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 class Buffer:
@@ -37,7 +39,7 @@ class Buffer:
 
 class Route_Agent:
     def __init__(self, n_state, n_action, args):
-        n_hidden = [32, 64, 64, 32]
+        n_hidden = [32, 64, 128, 64, 32]
         self.a_update_step = args.a_update_step
         self.c_update_step = args.c_update_step
         self.lr = args.lr
@@ -46,9 +48,9 @@ class Route_Agent:
         self.batch_size = args.batch_size
         self.state_dim = n_state
         self.action_dim = n_action
-        self.actor = Actor(n_state, n_action, n_hidden)
-        self.old_actor = copy.deepcopy(self.actor)
-        self.critic = Critic(n_state, args.objective, n_hidden)
+        self.actor = Actor(n_state, n_action, n_hidden).to(device)
+        self.old_actor = copy.deepcopy(self.actor).to(device)
+        self.critic = Critic(n_state, args.objective, n_hidden).to(device)
         self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=self.lr)
         self.critic_optim = torch.optim.Adam(self.critic.parameters(), lr=self.lr)
         self.buffer = Buffer(self.batch_size)
@@ -57,44 +59,48 @@ class Route_Agent:
         self.actor_loss = []
         self.record = None
         self.learn_step = 0
+        self.train_loss_path = './log/train'
 
-    def choose_action(self, state):
-        state = torch.FloatTensor(state).unsqueeze(0)
-        prob = self.actor(state).squeeze(0)
-        dist = torch.distributions.Categorical(prob)
-        action = dist.sample().item()
-        return action
+    def choose_action(self, state, train=True):
+        if train and np.random.random(1) < 0.2:
+            action = np.random.randint(low=0, high=self.action_dim)
+            return action
+        else:
+            state = torch.FloatTensor(state).unsqueeze(0).to(device)
+            prob = self.actor(state).squeeze(0)
+            dist = torch.distributions.Categorical(prob)
+            action = dist.sample().item()
+            return action
 
     def cal_target(self, state_, done):
-        state_ = torch.FloatTensor(state_)
-        target = self.critic(state_).detach().numpy() * (1 - done)
-        target = np.dot(target, self.w)
+        state_ = torch.FloatTensor(state_).to(device)
+        target = self.critic(state_).detach().cpu().numpy() * (1 - done)
         target_list = []
         reward = np.array(self.buffer.reward)
-        min_r = np.tile(np.min(reward, axis=0), (reward.shape[0], 1))
-        max_r = np.tile(np.max(reward, axis=0), (reward.shape[0], 1))
-        norm_reward = (reward - min_r) / (max_r - min_r + 1e-6)
-        for r in norm_reward[::-1]:
-            r = np.dot(r, self.w)
+
+        for r in reward[::-1]:
             target = target + self.gamma * r
-            target_list.insert(0, target)
-        target = torch.FloatTensor(target_list)
+            target_list.insert(0, target.tolist())
+        target_list = np.dot(np.array(target_list), self.w).tolist()
+        target = torch.FloatTensor(target_list).to(device)
         return target
 
     def cal_advantage(self, target):
-        state = torch.tensor(self.buffer.state, dtype=torch.float)
+        state = torch.tensor(self.buffer.state, dtype=torch.float).to(device)
         v = self.critic(state)
-        w = torch.from_numpy(self.w).float().unsqueeze(1)
+        w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
         v = torch.mm(v, w).squeeze()
 
         adv = (target - v).detach()
         return adv
 
     def critic_update(self, target):
-        state = torch.FloatTensor(self.buffer.state)
+        state = torch.FloatTensor(self.buffer.state).to(device)
         v = self.critic(state)
-        w = torch.from_numpy(self.w).float().unsqueeze(1)
+        w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
         v = torch.mm(v, w).squeeze()
+        if v.size() != target.size():
+            raise Exception(f'v.shape {v.shape} is not equal target.shape {target.shape}')
         mse_loss = torch.nn.MSELoss()
         loss = mse_loss(v, target)
         self.critic_optim.zero_grad()
@@ -104,8 +110,8 @@ class Route_Agent:
 
     def actor_update(self, target):
         adv = self.cal_advantage(target).reshape(-1, 1)
-        state = torch.FloatTensor(self.buffer.state)
-        action = torch.LongTensor(self.buffer.action).view(-1, 1)
+        state = torch.FloatTensor(self.buffer.state).to(device)
+        action = torch.LongTensor(self.buffer.action).view(-1, 1).to(device)
 
         prob = self.actor(state).gather(1, action)
         old_prob = self.old_actor(state).gather(1, action)
@@ -155,7 +161,7 @@ class Route_Agent:
 
     def save(self, file):
         path = './param/ra/'
-        date = time.strftime('%Y-%m-%d-%H-%M-%S')
+        date = time.strftime('%m-%d-%H-%M')
         path = path + date
         if not os.path.exists(path):
             os.makedirs(path)
@@ -164,41 +170,50 @@ class Route_Agent:
         actor_file = '/'.join([path, actor_file])
         critic_file = '/'.join([path, critic_file])
         torch.save(self.actor.net.state_dict(), actor_file)
-        torch.save(self.actor.net.state_dict(), critic_file)
+        torch.save(self.critic.net.state_dict(), critic_file)
 
     def load(self, pkl_list):
-        state_dict = torch.load(pkl_list[0])
-        print(state_dict)
-        self.actor.net.load_state_dict(torch.load(pkl_list[0]))
-        state_dict = torch.load(pkl_list[1])
-        print(state_dict)
-        self.critic.net.load_state_dict(torch.load(pkl_list[1]))
+        self.actor.net.load_state_dict(torch.load(pkl_list[0], map_location=torch.device(device)))
+        self.critic.net.load_state_dict(torch.load(pkl_list[1], map_location=torch.device(device)))
 
     def show_loss(self):
         fig, axes = plt.subplots(1, 2, sharex=True, sharey=False)
+        date = time.strftime('%m-%d-%H-%M')
+        dir_path = '/'.join([self.train_loss_path, date])
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+
         axes[0].plot(range(self.learn_step), self.actor_loss, color='green', label='actor_loss')
         axes[0].set_xlabel('step')
         axes[0].set_ylabel('loss')
-        axes[0].set_title('sequence agent actor loss')
+        axes[0].set_title('ra actor loss')
+        ra_lossf = 'ra_ac_loss.log'
+        file = '/'.join([self.train_loss_path, date, ra_lossf])
+        np.save(file, np.array(self.actor_loss))
+
         axes[1].plot(range(self.learn_step), self.critic_loss, color='yellow', label='critic_loss')
-        axes[1].set_title('sequence agent critic loss')
+        axes[1].set_title('ra critic loss')
         axes[1].set_xlabel('step')
-        axes[1].set_ylabel('loss')
+        ra_lossf = 'ra_cr_loss.log'
+        file = '/'.join([self.train_loss_path, date, ra_lossf])
+        np.save(file, np.array(self.critic_loss))
         plt.show()
 
 
 class Sequence_Agent:
     def __init__(self, n_state, n_action, args):
-        n_hidden = [32, 64, 64, 32]
+        n_hidden = [32, 64, 128, 64, 32]
         self.a_update_step = args.a_update_step
         self.c_update_step = args.c_update_step
         self.lr = args.lr
         self.gamma = args.gamma
         self.epsilon = args.epsilon
         self.batch_size = args.batch_size
-        self.actor = Actor(n_state, n_action, n_hidden)
-        self.old_actor = copy.deepcopy(self.actor)
-        self.critic = Critic(n_state, args.objective, n_hidden)
+        self.state_dim = n_state
+        self.action_dim = n_action
+        self.actor = Actor(n_state, n_action, n_hidden).to(device)
+        self.old_actor = copy.deepcopy(self.actor).to(device)
+        self.critic = Critic(n_state, args.objective, n_hidden).to(device)
         self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=self.lr)
         self.critic_optim = torch.optim.Adam(self.critic.parameters(), lr=self.lr)
         self.buffer = Buffer(self.batch_size)
@@ -206,36 +221,38 @@ class Sequence_Agent:
         self.critic_loss = []
         self.actor_loss = []
         self.learn_step = 0
+        self.train_loss_path = './log/train'
 
-    def choose_action(self, state):
-        state = torch.FloatTensor(state).unsqueeze(0)
-        prob = self.actor(state).squeeze(0)
-        dist = torch.distributions.Categorical(prob)
-        action = dist.sample()
-        return action.item()
+    def choose_action(self, state, train=True):
+        if train and np.random.random(1) < 0.2:
+            action = np.random.randint(low=0, high=self.action_dim)
+            return action
+        else:
+            state = torch.FloatTensor(state).unsqueeze(0).to(device)
+            prob = self.actor(state).squeeze(0)
+            dist = torch.distributions.Categorical(prob)
+            action = dist.sample()
+            return action.item()
 
     def cal_target(self, state_, done):
-        state_ = torch.FloatTensor(state_)
-        target = self.critic(state_).detach().numpy() * (1 - done)
-        target = np.dot(target, self.w)
+        state_ = torch.FloatTensor(state_).to(device)
+        target = self.critic(state_).detach().cpu().numpy() * (1 - done)
+        target[-1] = 0
         target_list = []
 
         reward = np.array(self.buffer.reward)
-        min_r = np.tile(np.min(reward, axis=0), (reward.shape[0], 1))
-        max_r = np.tile(np.max(reward, axis=0), (reward.shape[0], 1))
-        norm_reward = (reward - min_r) / (max_r - min_r + 1e-6)
 
-        for r in norm_reward[::-1]:
-            r = np.dot(r, self.w)
+        for r in reward[::-1]:
             target = target + self.gamma * r
-            target_list.insert(0, target)
-        target = torch.FloatTensor(target_list)
+            target_list.insert(0, target.tolist())
+        target_list = np.dot(np.array(target_list), self.w).tolist()
+        target = torch.FloatTensor(target_list).to(device)
         return target
 
     def cal_advantage(self, target):
-        state = torch.tensor(self.buffer.state, dtype=torch.float)
+        state = torch.tensor(self.buffer.state, dtype=torch.float).to(device)
         v = self.critic(state)
-        w = torch.from_numpy(self.w).float().unsqueeze(1)
+        w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
         v = torch.mm(v, w).squeeze()
 
         adv = (target - v).detach()
@@ -243,10 +260,10 @@ class Sequence_Agent:
 
     def actor_update(self, target):
         adv = self.cal_advantage(target).reshape(-1, 1)
-        state = torch.FloatTensor(self.buffer.state)
+        state = torch.FloatTensor(self.buffer.state).to(device)
         prob = self.actor(state)
         old_prob = self.old_actor(state)
-        action = torch.LongTensor(self.buffer.action).view(-1, 1)
+        action = torch.LongTensor(self.buffer.action).view(-1, 1).to(device)
         prob = prob.gather(1, action)
         old_prob = old_prob.gather(1, action)
 
@@ -260,9 +277,9 @@ class Sequence_Agent:
         return loss.item()
 
     def critic_update(self, target):
-        state = torch.FloatTensor(self.buffer.state)
+        state = torch.FloatTensor(self.buffer.state).to(device)
         v = self.critic(state)
-        w = torch.from_numpy(self.w).float().unsqueeze(1)
+        w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
         v = torch.mm(v, w).squeeze()
         mse_loss = torch.nn.MSELoss()
         loss = mse_loss(v, target)
@@ -293,7 +310,7 @@ class Sequence_Agent:
 
     def save(self, file):
         path = './param/sa/'
-        date = time.strftime('%Y-%m-%d-%H-%M-%S')
+        date = time.strftime('%m-%d-%H-%M')
         path = path + date
         if not os.path.exists(path):
             os.makedirs(path)
@@ -305,17 +322,29 @@ class Sequence_Agent:
         torch.save(self.critic.net.state_dict(), critic_file)
 
     def load(self, pkl_list):
-        self.actor.net.load_state_dict(torch.load(pkl_list[0]))
-        self.critic.net.load_state_dict(torch.load(pkl_list[1]))
+        self.actor.net.load_state_dict(torch.load(pkl_list[0], map_location=torch.device(device)))
+        self.critic.net.load_state_dict(torch.load(pkl_list[1], map_location=torch.device(device)))
 
     def show_loss(self):
         fig, axes = plt.subplots(1, 2, sharex=True, sharey=False)
+        date = time.strftime('%m-%d-%H-%M')
+        dir_path = '/'.join([self.train_loss_path, date])
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+
         axes[0].plot(range(self.learn_step), self.actor_loss, color='green', label='actor loss')
         axes[0].set_xlabel('step')
         axes[0].set_ylabel('loss')
-        axes[0].set_title('sequence agent actor loss')
+        axes[0].set_title('sa actor loss')
+        ra_lossf = 'sa_ac_loss.log'
+        file = '/'.join([self.train_loss_path, date, ra_lossf])
+        np.save(file, np.array(self.actor_loss))
+
         axes[1].plot(range(self.learn_step), self.critic_loss, color='yellow', label='critic_loss')
-        axes[1].set_title('sequence agent critic loss')
+        axes[1].set_title('sa critic loss')
         axes[1].set_xlabel('step')
-        axes[1].set_ylabel('loss')
+        ra_lossf = 'sa_cr_loss.log'
+        file = '/'.join([self.train_loss_path, date, ra_lossf])
+        np.save(file, np.array(self.critic_loss))
+
         plt.show()

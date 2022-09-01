@@ -59,7 +59,7 @@ class Op:
 
 
 class Job:
-    def __init__(self, ops, ddt, ops_num, u_degree, arrival_t):
+    def __init__(self, ops, ddt_ratio, ops_num, u_degree, arrival_t):
         """
         :param ops: 工序集合
         :param ddt: 预期时间
@@ -68,7 +68,7 @@ class Job:
         :param arrival_t: 到达时间
         """
         self.ops = ops
-        self.ddt = ddt
+        self.ddt_ratio = ddt_ratio
         self.ops_num = ops_num
         self.u_degree = u_degree
 
@@ -93,7 +93,7 @@ class Job:
             ops_ave_ect.append(op.ave_ect)
         self.ops_ave_pt = np.array(ops_ave_pt)
         self.ops_ave_ect = np.array(ops_ave_ect)
-        self.due_date = round(self.ddt * np.sum(self.ops_ave_pt)) + self.arrival_t
+        self.due_date = round(self.ddt_ratio * np.sum(self.ops_ave_pt)) + self.arrival_t
 
     def get_ftardiness(self, t):
         if self.pre_no == self.ops_num:
@@ -115,7 +115,7 @@ class Job:
         # flag = False 表示计算实际延迟时间 flag = True计算预估延迟时间
         slack = self.get_slack_time(t, flag)
         if slack < 0:
-            return -slack * self.u_degree
+            return -slack
         else:
             return 0
 
@@ -182,6 +182,7 @@ class Machine:
         self.buffer_op = []  # 队列中工序
         self.ava_t = 0
         self.est_use_ratio = 0  # 预计利用率
+        self.idle_cost = 0.2
 
     def _swap(self, index1, index2, l):
         temp = l[index1]
@@ -319,8 +320,14 @@ class Machine:
         return break_point, rep_t
 
     def get_total_ect(self):
-        ects = np.array(self.ects)
-        return ects.sum()
+        work_ect = np.array(self.ects).sum()
+        idle_time = 0
+        for i in range(len(self.op_end)-1):
+            idle_time += self.op_end[i] - self.op_start[i]
+        idle_ect = idle_time * self.idle_cost
+        ect = work_ect + idle_ect
+        # print(f'word_ect{work_ect}, idle_ect{idle_ect}')
+        return ect
 
     def get_state(self):
         queue_job_pt = np.zeros(len(self.buffer_op))
@@ -340,18 +347,18 @@ class Machine:
         # return sum_pt, mean_pt, min_pt, job_index
 
 
-def get_job_data(data, key, format):
+def get_job_data(data, key, job_format):
     job_info = data[key]
     if key == "job":
-        job_num = job_info["job_num"]
+        job_num = job_info["init_job_num"]
     else:
         job_num = job_info["new_job_num"]
     jobs = []
     for j in range(job_num):
-        name = format.format(j)
+        name = job_format.format(j)
         ava_mach_numbers = job_info[name]["ava_mach_numbers"]
         ava_mach_nums = job_info[name]["ava_mach_nums"]
-        ddt = job_info[name]["ddt"]
+        ddt_ratio = job_info[name]["ddt_ratio"]
         e_costs = job_info[name]["e_costs"]
         op_num = job_info[name]["op_num"]
         p_ts = job_info[name]["p_ts"]
@@ -362,17 +369,17 @@ def get_job_data(data, key, format):
             ops.append(Op(op_index, j, ava_mach_nums[op_index], ava_mach_numbers[op_index],
                           e_costs[op_index], p_ts[op_index]))
         ops = np.array(ops)
-        jobs.append(Job(ops, ddt, op_num, u_degree, arrival_t))
+        jobs.append(Job(ops, ddt_ratio, op_num, u_degree, arrival_t))
     jobs = np.array(jobs)
     return jobs
 
 
-def get_machine_data(data, key, format):
+def get_machine_data(data, key, machine_format):
     machine_info = data[key]
     machine_num = machine_info['machine_num']
     machines = []
     for m in range(machine_num):
-        name = format.format(m)
+        name = machine_format.format(m)
         fail_t = machine_info[name]["break_t"]
         rep_t = machine_info[name]["rep_t"]
         machines.append(Machine(m, fail_t, rep_t))

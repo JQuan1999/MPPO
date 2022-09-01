@@ -15,19 +15,16 @@ class Actor(nn.Module):
                 self.net.append(nn.Linear(n_state, n_hidden[i]))
             else:
                 self.net.append(nn.Linear(n_hidden[i-1], n_hidden[i]))
-            self.net.append(nn.ReLU())
+            self.net.append(nn.Tanh())
         self.net.append(nn.Linear(n_hidden[-1], n_action))
 
     def forward(self, x):
-        temp1 = x.numpy()
         for m in self.net:
             x = m(x)
-        temp2 = x.detach().numpy()
+        x_ = (torch.ones_like(x) * 1e-3).to(x.device)
+        if torch.isnan(x).any():
+            x = torch.where(torch.isnan(x), x_, x)
         out = F.softmax(x, dim=1)
-        if torch.isnan(out).any():
-            print(f'origin value is {temp1}')
-            print(f'value before softmax is {temp2}')
-            raise Exception('out has nan value, out : {}'.format(out.detach().numpy()))
 
         return out
 
@@ -41,7 +38,7 @@ class Critic(nn.Module):
                 self.net.append(nn.Linear(n_state, n_hidden[i]))
             else:
                 self.net.append(nn.Linear(n_hidden[i-1], n_hidden[i]))
-            self.net.append(nn.ReLU())
+            self.net.append(nn.Tanh())
         self.net.append(nn.Linear(n_hidden[-1], n_out))
 
     def forward(self, x):
