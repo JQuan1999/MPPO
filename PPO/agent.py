@@ -54,30 +54,26 @@ class Route_Agent:
         self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=self.lr)
         self.critic_optim = torch.optim.Adam(self.critic.parameters(), lr=self.lr)
         self.buffer = Buffer(self.batch_size)
-        self.w = None
+        self.w = np.ones(3) * 1e-3
         self.critic_loss = []
         self.actor_loss = []
         self.record = None
         self.learn_step = 0
         self.train_loss_path = './log/train'
 
-    def choose_action(self, state, train=True):
-        if train and np.random.random(1) < 0.2:
-            action = np.random.randint(low=0, high=self.action_dim)
-            return action
-        else:
-            state = torch.FloatTensor(state).unsqueeze(0).to(device)
-            prob = self.actor(state).squeeze(0)
-            dist = torch.distributions.Categorical(prob)
-            action = dist.sample().item()
-            return action
+    def choose_action(self, state):
+        state = torch.FloatTensor(state).unsqueeze(0).to(device)
+        prob = self.actor(state).squeeze(0)
+        dist = torch.distributions.Categorical(prob)
+        action = dist.sample().item()
+        return action
 
     def cal_target(self, state_, done):
         state_ = torch.FloatTensor(state_).to(device)
         target = self.critic(state_).detach().cpu().numpy() * (1 - done)
         target_list = []
         reward = np.array(self.buffer.reward)
-
+        ra = reward.sum(axis=0)
         for r in reward[::-1]:
             target = target + self.gamma * r
             target_list.insert(0, target.tolist())
@@ -89,7 +85,7 @@ class Route_Agent:
         state = torch.tensor(self.buffer.state, dtype=torch.float).to(device)
         v = self.critic(state)
         w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
-        v = torch.mm(v, w).squeeze()
+        v = torch.mm(v, w).reshape(-1, )
 
         adv = (target - v).detach()
         return adv
@@ -98,9 +94,7 @@ class Route_Agent:
         state = torch.FloatTensor(self.buffer.state).to(device)
         v = self.critic(state)
         w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
-        v = torch.mm(v, w).squeeze()
-        if v.size() != target.size():
-            raise Exception(f'v.shape {v.shape} is not equal target.shape {target.shape}')
+        v = torch.mm(v, w).reshape(-1, )
         mse_loss = torch.nn.MSELoss()
         loss = mse_loss(v, target)
         self.critic_optim.zero_grad()
@@ -224,15 +218,11 @@ class Sequence_Agent:
         self.train_loss_path = './log/train'
 
     def choose_action(self, state, train=True):
-        if train and np.random.random(1) < 0.2:
-            action = np.random.randint(low=0, high=self.action_dim)
-            return action
-        else:
-            state = torch.FloatTensor(state).unsqueeze(0).to(device)
-            prob = self.actor(state).squeeze(0)
-            dist = torch.distributions.Categorical(prob)
-            action = dist.sample()
-            return action.item()
+        state = torch.FloatTensor(state).unsqueeze(0).to(device)
+        prob = self.actor(state).squeeze(0)
+        dist = torch.distributions.Categorical(prob)
+        action = dist.sample()
+        return action.item()
 
     def cal_target(self, state_, done):
         state_ = torch.FloatTensor(state_).to(device)
@@ -253,7 +243,7 @@ class Sequence_Agent:
         state = torch.tensor(self.buffer.state, dtype=torch.float).to(device)
         v = self.critic(state)
         w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
-        v = torch.mm(v, w).squeeze()
+        v = torch.mm(v, w).reshape(-1, )
 
         adv = (target - v).detach()
         return adv
@@ -280,7 +270,7 @@ class Sequence_Agent:
         state = torch.FloatTensor(self.buffer.state).to(device)
         v = self.critic(state)
         w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
-        v = torch.mm(v, w).squeeze()
+        v = torch.mm(v, w).reshape(-1, )
         mse_loss = torch.nn.MSELoss()
         loss = mse_loss(v, target)
         self.critic_optim.zero_grad()

@@ -24,7 +24,6 @@ class Op:
         self.f_ect = 0
         self.f_pt = 0
         self.choose_mach_index = None
-        self.ep_r = None
         self._cal()
 
     def _cal(self):
@@ -51,11 +50,10 @@ class Op:
         self.start = start
         self.end = end
 
-    def ra_step(self, pt, ect, mach_index, reward):
+    def ra_step(self, pt, ect, mach_index):
         self.f_pt = pt
         self.f_ect = ect
         self.choose_mach_index = mach_index
-        self.ep_r = reward
 
 
 class Job:
@@ -95,37 +93,21 @@ class Job:
         self.ops_ave_ect = np.array(ops_ave_ect)
         self.due_date = round(self.ddt_ratio * np.sum(self.ops_ave_pt)) + self.arrival_t
 
-    def get_ftardiness(self, t):
-        if self.pre_no == self.ops_num:
-            finish = True
-        else:
-            finish = False
-        if finish:
-            end = self.ops_end[self.ops_num - 1]
-            tardiness = self.due_date - end
-            if tardiness >= 0:
-                return 0
-            else:
-                return - self.u_degree * tardiness
-        else:
-            tardiness = self.get_tardiness(t)
-            return tardiness
-
     def get_tardiness(self, t, flag=False):
-        # flag = False 表示计算实际延迟时间 flag = True计算预估延迟时间
-        slack = self.get_slack_time(t, flag)
+        if self.ops_finish.sum() == self.ops_num:
+            slack = self.due_date - self.ops_end[-1]
+        else:
+            # flag = False 表示计算实际延迟时间 flag = True计算预估延迟时间
+            slack = self.get_slack_time(t, flag)
         if slack < 0:
-            return -slack
+            return - self.u_degree * slack
         else:
             return 0
 
     def get_slack_time(self, t, flag=False):
         left_pt = self.get_remain_pt(flag)
         slack = self.due_date - t - left_pt
-        if slack > 0:
-            return slack
-        else:
-            return self.u_degree * slack
+        return slack
 
     def get_remain_pt(self, flag=False):
         if flag is True and self.ops_dispatch_no == self.pre_no + 1:
@@ -172,7 +154,6 @@ class Machine:
         self.break_t = break_t
         self.rep_t = rep_t
         self.break_cnt = 0
-        self.use_ratio = []
         self.op_start = []  # 所有工序的开始时间
         self.op_pt = []  # 所有工序所需处理时间
         self.op_end = []
@@ -181,8 +162,12 @@ class Machine:
         self.finished_op = []  # 已完成工序
         self.buffer_op = []  # 队列中工序
         self.ava_t = 0
-        self.est_use_ratio = 0  # 预计利用率
+        self.last_est_ur = 0  # 预计利用率
+        self.last_ur = 0  # 利用率
+        self.last_ep_ratio = 0  # 能耗加工时间比
         self.idle_cost = 0.2
+        self.total_ect = 0
+        self.est_ep_ratio = 0
 
     def _swap(self, index1, index2, l):
         temp = l[index1]
@@ -257,6 +242,11 @@ class Machine:
         use_ratio = work_load / self.op_end[index]
         return use_ratio
 
+    def cal_ep_ratio(self):
+        sum_ect = np.array(self.ects).sum()
+        sum_pt = np.array(self.op_pt).sum()
+        return sum_ect / sum_pt
+
     def get_queue_job_index(self):
         job_inds = [op.job_index for op in self.buffer_op]
         return job_inds
@@ -283,6 +273,11 @@ class Machine:
             job_inds = [self.buffer_op[i - begin_i].job_index for i in ava_index]  # 返回buffer中早于等于机器可用时间的工件索引
             return job_inds
 
+    def get_queue_job_num(self):
+        job_inds = self.get_queue_job_index()
+        num = len(job_inds)
+        return num
+
     def get_queue_start_time(self):
         begin_index = len(self.finished_op)
         start_t = []
@@ -302,16 +297,32 @@ class Machine:
         begin_i = len(self.finished_op)
         work_load = self.cal_work_load()
         ava_t = self.ava_t
+        end = ava_t
         for i in range(begin_i, len(self.op_start)):
-            ava_t = max(ava_t, self.op_start[i])
-            ava_t += self.op_pt[i]
+            ava_t = max(end, self.op_start[i])
+            end += self.op_pt[i]
             work_load += self.op_pt[i]
-        if ava_t == 0:
+        if end == 0:
             est_use_ratio = 0
         else:
-            est_use_ratio = work_load / ava_t
-        self.est_use_ratio = est_use_ratio
+            est_use_ratio = work_load / end
         return est_use_ratio
+
+    def get_estimate_ep_ratio(self):
+        begin_i = len(self.finished_op)
+        work_load = self.cal_work_load()
+        ava_t = self.ava_t
+        end = ava_t
+        for i in range(begin_i, len(self.op_start)):
+            ava_t = max(end, self.op_start[i])
+            end = ava_t + self.op_pt[i]
+            work_load += self.op_pt[i]
+        idle_t = end - work_load
+        total_ect = work_load + idle_t * self.idle_cost
+        if end == 0:
+            return 0
+        else:
+            return total_ect / end
 
     def get_break(self):
         cnt = self.break_cnt
@@ -319,7 +330,7 @@ class Machine:
         rep_t = self.rep_t[cnt]
         return break_point, rep_t
 
-    def get_total_ect(self):
+    def cal_total_ect(self):
         work_ect = np.array(self.ects).sum()
         idle_time = 0
         for i in range(len(self.op_end)-1):
@@ -345,6 +356,21 @@ class Machine:
         min_start = start.min()
         return self.ava_t, mean_start, min_start, mean_pt, min_pt, job_index
         # return sum_pt, mean_pt, min_pt, job_index
+
+    def ur_update(self, ur):
+        self.last_ur = ur
+
+    def ect_ur_update(self, est_ur):
+        self.last_est_ur = est_ur
+
+    def ep_ratio_update(self, ep_r):
+        self.last_ep_ratio = ep_r
+
+    def total_ect_update(self, ect):
+        self.total_ect = ect
+
+    def est_ep_ratio_update(self, r):
+        self.est_ep_ratio = r
 
 
 def get_job_data(data, key, job_format):

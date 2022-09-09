@@ -2,12 +2,22 @@
 import numpy as np
 
 
+def FIFO(jobs, t):
+    ava_t = np.zeros(len(jobs))
+    for i in range(len(ava_t)):
+        ava_t[i] = jobs[i].pre_start
+    index = np.argmin(ava_t)
+    return index
+
+
 # 最短松弛时间优先
 # minimum slack time
 def DS(jobs, t):
     slack_time = np.zeros(len(jobs))
     for i in range(len(jobs)):
         slack_time[i] = jobs[i].get_slack_time(t)
+        if slack_time[i] < 0:
+            slack_time[i] = jobs[i].u_degree * slack_time[i]
     index = np.argmin(slack_time)
     return index
 
@@ -44,14 +54,6 @@ def CR(jobs, t):
         return index
 
 
-# 短作业优先
-# short processing time
-def SPT(jobs, t):
-    pt = np.array([job.pre_op.ave_pt for job in jobs.tolist()])
-    index = np.argmin(pt)
-    return index
-
-
 # 最短剩余时间优先
 # shortest remaining processing time
 def SRPT(jobs, t):
@@ -64,14 +66,14 @@ def job_dispatch(action, jobs, t):
     if len(jobs) == 1:
         return 0
     else:
-        rules = [DS, EDD, CR, SPT, SRPT]
+        rules = [FIFO, DS, EDD, CR, SRPT]
         index = rules[action](jobs, t)
         return index
 
 
 # 加工时间最短
 # short processing machine
-def SPM(machines, op):
+def SPT(machines, op):
     pt = np.zeros(len(machines))
     for m in range(len(machines)):
         pt[m] = op.get_pt(machines[m].mach_index)
@@ -104,12 +106,13 @@ def EAM(machines, op):
 def SQT(machines, op):
     queue_t = np.zeros(len(machines))
     for mach_index in range(len(machines)):
-        queue_t[mach_index] = machines[mach_index].get_estimate_ava_time()
+        est_ava = machines[mach_index].get_estimate_ava_time()
+        queue_t[mach_index] = est_ava - machines[mach_index].ava_t
     index = np.argmin(queue_t)
     return index
 
 
 def machine_dispatch(machines, op, machine_action):
-    machine_rules = [SPM, SECM, EAM, SQT]
+    machine_rules = [SPT, SECM, EAM, SQT]
     index = machine_rules[machine_action](machines, op)
     return index

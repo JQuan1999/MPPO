@@ -47,10 +47,9 @@ def save_result(record, args):
 def rule_eval():
     args = parser.parse_args()
     test = get_data(args.test)
-    # test = ['./data/test/j10_m10_n20', './data/test/j10_m10_n50', './data/test/j20_m20_n50', './data/test/j20_m20_n100', './data/test/j30_m30_n50', './data/test/j30_m30_n100']
-    act_comb = get_action_comb(args)[:10]
-    sa_action = ['DS', 'EDD', 'CR', 'SPT', 'SRPT']
-    ra_action = ['SPM', 'SECM', 'EAM', 'SQT']
+    act_comb = get_action_comb(args)
+    sa_action = ['FIFO', 'DS', 'EDD', 'CR', 'SRPT']
+    ra_action = ['SPT', 'SECM', 'EAM', 'SQT']
     record = {}
     for k, ac in enumerate(act_comb):
         comb_name = '_'.join([sa_action[ac[0]], ra_action[ac[1]]])

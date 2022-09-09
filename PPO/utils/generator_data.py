@@ -9,16 +9,16 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--init_job_num', type=int, default=0, help='initial job num in the system')
 parser.add_argument('--machine_num', type=int, default=0, help='machine num in the system')
 parser.add_argument('--new_job_num', type=int, default=0, help='new job num in the system')
-parser.add_argument('--process_time', type=list, default=[10, 50], help='process time interval')
+parser.add_argument('--process_time', type=list, default=[20, 50], help='process time interval')
 parser.add_argument('--operation_num', type=list, default=[0, 0], help='available operation machine num interval')
 parser.add_argument('--available_machine', type=list, default=[0, 0], help='available operate machine for an operation')
-parser.add_argument('--urgency_degree', type=list, default=[1, 4], help='job urgency degree')
+parser.add_argument('--urgency_degree', type=list, default=[1, 3], help='job urgency degree')
 parser.add_argument('--interval_break', type=int, default=500,
                     help='machine break time exponential distribution parameter')
 parser.add_argument('--repair_time', type=int, default=50, help='machine repair time ')
 parser.add_argument('--break_cnt', type=int, default=50, help='machine max break times')
 parser.add_argument('--interval_arrival', type=list, default=[25, 100], help='new job arrival time interval')
-parser.add_argument('--ddt_ratio', type=list, default=[1.0, 1.5], help='due date ratio')
+parser.add_argument('--ddt_ratio', type=list, default=[1.2, 1.5], help='due date ratio')
 
 
 class NoIndent(object):
@@ -215,10 +215,10 @@ def generate_spec_data():
     new_job_key = "new_job"
     new_job_format = "new_job{}"
 
-    jn = [30]  # 初始工件数量
-    mn = [30]  # 加工机器数量
-    nn = [20]  # 新工件数量
-    times = 50
+    jn = [20]  # 初始工件数量
+    mn = [20]  # 加工机器数量
+    nn = [50]  # 新工件数量
+    times = 100
     for k in range(len(jn)):
         j = jn[k]
         m = mn[k]

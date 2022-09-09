@@ -61,8 +61,8 @@ def random_eval():
     test = get_data(args.test)
     act_comb = get_action_comb(args)
 
-    sa_action = ['DS', 'EDD', 'CR', 'SPT', 'SRPT']
-    ra_action = ['SPM', 'SECM', 'EAM', 'SQT']
+    sa_action = ['FIFO', 'DS', 'EDD', 'CR', 'SRPT']
+    ra_action = ['SPT', 'SECM', 'EAM', 'SQT']
     record = {}
     for i in range(len(test)):
         test_data = get_data(test[i])

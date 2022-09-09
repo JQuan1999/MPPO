@@ -17,13 +17,13 @@ parser.add_argument('--episodes', type=int, default=500, help='train episodes')
 parser.add_argument('--batch_size', type=int, default=128, help='learning batch size')
 parser.add_argument('--a_update_step', type=int, default=10, help='actor learning step')
 parser.add_argument('--c_update_step', type=int, default=10, help='critic learning step')
-parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
-parser.add_argument('--gamma', type=float, default=0.9, help='discount reward')
+parser.add_argument('--lr', type=float, default=0.0005, help='learning rate')
+parser.add_argument('--gamma', type=float, default=0.9, help='discount1 reward')
 parser.add_argument('--epsilon', type=float, default=0.2, help='epsilon')
-parser.add_argument('--weight_size', type=int, default=200, help='sample weight')
+parser.add_argument('--weight_size', type=int, default=100, help='sample weight')
 parser.add_argument('--objective', type=int, default=3, help='objective size')
-parser.add_argument('--sa_state_dim', type=int, default=13, help='sequence agent state dim')
-parser.add_argument('--ra_state_dim', type=int, default=11, help='route agent state dim')
+parser.add_argument('--sa_state_dim', type=int, default=16, help='sequence agent state dim')
+parser.add_argument('--ra_state_dim', type=int, default=16, help='route agent state dim')
 parser.add_argument('--sa_action_space', type=int, default=5, help='sequence agent action space')
 parser.add_argument('--ra_action_space', type=int, default=4, help='route agent action space')
 parser.add_argument('--test', type=str, default='', help='test data directory')
@@ -44,23 +44,25 @@ def save_result(obj_record, args):
 
 
 def get_data(dpath):
-    files = os.listdir(dpath)
-    test_data = []
-    for file in files[:]:
-        file_path = '/'.join([dpath, file])
-        test_data.append(file_path)
-    return test_data
+    if os.path.isdir(dpath):
+        files = os.listdir(dpath)
+        test_data = []
+        for file in files[:]:
+            file_path = '/'.join([dpath, file])
+            test_data.append(file_path)
+        return test_data
+    else:
+        return [dpath]
 
 
 def eval_():
     args = parser.parse_args()
-    args.ra_pkl = ['./param/ra/08-31-22-54/500epochMix_B128_W200_actor.pkl', './param/ra/08-31-22-54/500epochMix_B128_W200_critic.pkl']
-    args.sa_pkl = ['./param/sa/08-31-22-54/500epochMix_B128_W200_actor.pkl', './param/sa/08-31-22-54/500epochMix_B128_W200_critic.pkl']
-    args.test = './data/test'
+    args.ra_pkl = ['./param/ra/09-04-00-57/1800epochMix_B128_W100_actor.pkl', './param/ra/09-04-00-57/1800epochMix_B128_W100_critic.pkl']
+    args.sa_pkl = ['./param/sa/09-04-00-57/1800epochMix_B128_W100_actor.pkl', './param/sa/09-04-00-57/1800epochMix_B128_W100_critic.pkl']
+    args.test = './data/test/j20_m20_n20/'
     test = get_data(args.test)
-    # test = ['./data/test/j10_m10_n20', './data/test/j10_m10_n50', './data/test/j20_m20_n50', './data/test/j20_m20_n100',
-    #         './data/test/j30_m30_n50', './data/test/j30_m30_n100']
     weight, size = init_weight(args.weight_size, args.objective)
+    # weight = np.tile(np.array([0.8, 0.1, 0.1]), (10, 1))
     sa = Sequence_Agent(args.sa_state_dim + args.objective, args.sa_action_space, args)
     ra = Route_Agent(args.ra_state_dim + args.objective, args.ra_action_space, args)
     ra.load(args.ra_pkl)
@@ -71,12 +73,12 @@ def eval_():
         obj_record[inst] = {}
         test_data = get_data(test[i])
         objs = np.zeros((len(test_data), 3))
-        a1 = []
-        a2 = []
         for j in range(len(test_data)):
+            a1 = []
+            a2 = []
             step = 0
             done2 = False
-            env = PPO_ENV(test_data[j], t=5000)
+            env = PPO_ENV(test_data[j], t=1000)
             cweight(weight, env, ra, sa)
             sa_state, mach_index1, t = env.reset(ra)
             while True:
@@ -90,8 +92,8 @@ def eval_():
                 sa_reward, done1, end = env.sa_step(mach_index1, job_index)
 
                 if not done2 and env.jobs[job_index].not_finish():
-                    ra_state = env.get_ra_state(job_index, end)
-                    ra_action = ra.choose_action(ra_state, train=False)
+                    ra_state = env.get_ra_state(job_index)
+                    ra_action = ra.choose_action(ra_state)
                     a2.append(ra_action)
                     mach_index2 = env.route_rule(job_index, ra_action)
                     ra_reward, done2 = env.ra_step(mach_index2, job_index, t)
@@ -100,11 +102,12 @@ def eval_():
                 sa_state_, mach_index1, t = env.step(ra, t)
                 sa_state = sa_state_
                 step += 1
-                if step % 8 == 0:
+                if step % 128 == 0:
                      cweight(weight, env, sa, ra)
                 if done1:
                     break
-            # env.render(t=1)
+            # print(f'a1 = {a1}\n a2={a2}')
+            env.render(t=100)
             obj_v = env.cal_objective()
             objs[j] = obj_v
             # print(f'data {test_data[j]} obj1 = {obj_v[0]}, obj2 = {obj_v[1]}, obj3 = {obj_v[2]}')

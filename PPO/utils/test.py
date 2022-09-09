@@ -201,13 +201,15 @@ def test14():
 
 
 def test15():
-
-    x = torch.randn(2, 3)
-    print(x)
-    tanh = torch.nn.Tanh()
-    out = tanh(x)
-    print(out)
+    x = torch.randn(10, 3)
+    w = torch.randn(3, 1)
+    if x.shape[0] != 1:
+        a = torch.mm(x, w).reshape(-1, )
+    else:
+        a = torch.mm(x, w).reshape(-1, )
+    print(a.shape)
+    # print(a)
 
 
 if __name__ == '__main__':
-    test15()
+    test14()
