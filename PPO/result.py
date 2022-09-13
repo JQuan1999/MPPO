@@ -87,7 +87,7 @@ def show_result(agent_log, rule_log, randm_log, test_data):
 
 
 if __name__ == '__main__':
-    agent_log = './log/eval/09-04-13-53-agent.json'
+    agent_log = './log/eval/09-13-12-45-agent.json'
     rule_log = './log/eval/09-04-14-19-rule.json'
     randm_log = './log/eval/09-04-13-24-randRule.json'
     test_data = np.array(['j10_m10_n20', 'j10_m10_n50', 'j10_m10_n100',

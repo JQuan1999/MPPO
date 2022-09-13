@@ -20,8 +20,8 @@ parser.add_argument('--gamma', type=float, default=0.9, help='discount1 reward')
 parser.add_argument('--epsilon', type=float, default=0.2, help='epsilon')
 parser.add_argument('--weight_size', type=int, default=100, help='sample weight')
 parser.add_argument('--objective', type=int, default=3, help='objective size')
-parser.add_argument('--sa_state_dim', type=int, default=16, help='sequence agent state dim')
-parser.add_argument('--ra_state_dim', type=int, default=16, help='route agent state dim')
+parser.add_argument('--sa_state_dim', type=int, default=15, help='sequence agent state dim')
+parser.add_argument('--ra_state_dim', type=int, default=15, help='route agent state dim')
 parser.add_argument('--sa_action_space', type=int, default=5, help='sequence agent action space')
 parser.add_argument('--ra_action_space', type=int, default=4, help='route agent action space')
 
@@ -60,16 +60,15 @@ def train():
     print(train_data_size)
 
     args = parser.parse_args()
-    weight, size = init_weight(args.weight_size, args.objective)
+    weight, size = init_weight(args.weight_size, args.objective, low_bound=0.1)
     weight = weight[10].reshape(1, -1)
-    sa = Sequence_Agent(args.sa_state_dim + args.objective, args.sa_action_space, args)
-    ra = Route_Agent(args.ra_state_dim + args.objective, args.ra_action_space, args)
+    sa = Sequence_Agent(args)
+    ra = Route_Agent(args)
     sa_rlist = []
     ra_rlist = []
     for episode in range(args.episodes):
         # data = train_data[episode % train_data_size]
         data = train_data[0]
-        # env.render()
         step = 0
         done2 = False
         env = PPO_ENV(data)
@@ -93,7 +92,6 @@ def train():
                 ra_reward, done2 = env.ra_step(mach_index2, job_index, t)
                 ra.store(ra_state, ra_action, ra_reward, done2)
                 r2 += np.dot(env.w, np.array(ra_reward))
-            # env.render()
             sa_state_, mach_index1, t = env.step(ra, t)
             sa.buffer.store(sa_state, sa_action, sa_reward, sa_state_, done1)
             r1 += np.dot(env.w, np.array(sa_reward))
@@ -104,7 +102,7 @@ def train():
                 if ra.buffer.cnt != 0:
                     ra_actor_loss, ra_critic_loss = ra.learn(ra_state, done2)
                     print(f'step {ra.learn_step},ra actor_loss = {ra_actor_loss}, ra critic_loss = {ra_critic_loss}')
-                # cweight(weight, env, sa, ra)
+                cweight(weight, env, sa, ra)
             sa_state = sa_state_
             step += 1
 
@@ -122,8 +120,6 @@ def train():
         # if episode % 200 == 0 and episode != 0:
         #    sa.save(f'{episode}epochMix_B{args.batch_size}_W{args.weight_size}_')
         #    ra.save(f'{episode}epochMix_B{args.batch_size}_W{args.weight_size}_')
-        # a1 = np.array(a1)
-        # a2 = np.array(a2)
     sa.save(f'{args.episodes}epochMix_B{args.batch_size}_W{args.weight_size}_')
     ra.save(f'{args.episodes}epochMix_B{args.batch_size}_W{args.weight_size}_')
     sa.show_loss()

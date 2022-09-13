@@ -38,7 +38,7 @@ class Buffer:
 
 
 class Route_Agent:
-    def __init__(self, n_state, n_action, args):
+    def __init__(self, args):
         n_hidden = [32, 64, 128, 64, 32]
         self.a_update_step = args.a_update_step
         self.c_update_step = args.c_update_step
@@ -46,11 +46,12 @@ class Route_Agent:
         self.gamma = args.gamma
         self.epsilon = args.epsilon
         self.batch_size = args.batch_size
-        self.state_dim = n_state
-        self.action_dim = n_action
-        self.actor = Actor(n_state, n_action, n_hidden).to(device)
+        self.save_path = args.ra_ckpt_path
+        self.state_dim = args.ra_state_dim + args.objective
+        self.action_dim = args.ra_action_space
+        self.actor = Actor(self.state_dim, self.action_dim, n_hidden).to(device)
         self.old_actor = copy.deepcopy(self.actor).to(device)
-        self.critic = Critic(n_state, args.objective, n_hidden).to(device)
+        self.critic = Critic(self.state_dim, args.objective, n_hidden).to(device)
         self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=self.lr)
         self.critic_optim = torch.optim.Adam(self.critic.parameters(), lr=self.lr)
         self.buffer = Buffer(self.batch_size)
@@ -73,7 +74,6 @@ class Route_Agent:
         target = self.critic(state_).detach().cpu().numpy() * (1 - done)
         target_list = []
         reward = np.array(self.buffer.reward)
-        ra = reward.sum(axis=0)
         for r in reward[::-1]:
             target = target + self.gamma * r
             target_list.insert(0, target.tolist())
@@ -153,14 +153,22 @@ class Route_Agent:
     def cweight(self, weight):
         self.w = weight
 
-    def save(self, file):
-        path = './param/ra/'
-        date = time.strftime('%m-%d-%H-%M')
-        path = path + date
+    def save(self, prefix=None, weight=None):
+        if weight is None:
+            dir_name = time.strftime('%m-%d-%H-%M')
+        else:
+            str_w = [str(round(100 * w)) for w in weight.reshape(-1, ).tolist()]
+            dir_name = 'w' + '_'.join(str_w)
+
+        path = '/'.join([self.save_path, dir_name])
         if not os.path.exists(path):
             os.makedirs(path)
-        actor_file = file + 'actor.pkl'
-        critic_file = file + 'critic.pkl'
+        if prefix is None:
+            actor_file = 'actor.pkl'
+            critic_file = 'critic.pkl'
+        else:
+            actor_file = prefix + 'actor.pkl'
+            critic_file = prefix + 'critic.pkl'
         actor_file = '/'.join([path, actor_file])
         critic_file = '/'.join([path, critic_file])
         torch.save(self.actor.net.state_dict(), actor_file)
@@ -195,7 +203,7 @@ class Route_Agent:
 
 
 class Sequence_Agent:
-    def __init__(self, n_state, n_action, args):
+    def __init__(self, args):
         n_hidden = [32, 64, 128, 64, 32]
         self.a_update_step = args.a_update_step
         self.c_update_step = args.c_update_step
@@ -203,11 +211,12 @@ class Sequence_Agent:
         self.gamma = args.gamma
         self.epsilon = args.epsilon
         self.batch_size = args.batch_size
-        self.state_dim = n_state
-        self.action_dim = n_action
-        self.actor = Actor(n_state, n_action, n_hidden).to(device)
+        self.save_path = args.sa_ckpt_path
+        self.state_dim = args.objective + args.sa_state_dim
+        self.action_dim = args.sa_action_space
+        self.actor = Actor(self.state_dim, self.action_dim, n_hidden).to(device)
         self.old_actor = copy.deepcopy(self.actor).to(device)
-        self.critic = Critic(n_state, args.objective, n_hidden).to(device)
+        self.critic = Critic(self.state_dim, args.objective, n_hidden).to(device)
         self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=self.lr)
         self.critic_optim = torch.optim.Adam(self.critic.parameters(), lr=self.lr)
         self.buffer = Buffer(self.batch_size)
@@ -217,7 +226,7 @@ class Sequence_Agent:
         self.learn_step = 0
         self.train_loss_path = './log/train'
 
-    def choose_action(self, state, train=True):
+    def choose_action(self, state):
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
         prob = self.actor(state).squeeze(0)
         dist = torch.distributions.Categorical(prob)
@@ -298,14 +307,22 @@ class Sequence_Agent:
     def cweight(self, weight):
         self.w = weight
 
-    def save(self, file):
-        path = './param/sa/'
-        date = time.strftime('%m-%d-%H-%M')
-        path = path + date
+    def save(self, prefix=None, weight=None):
+        if weight is None:
+            dir_name = time.strftime('%m-%d-%H-%M')
+        else:
+            str_w = [str(round(100 * w)) for w in weight.reshape(-1, ).tolist()]
+            dir_name = 'w' + '_'.join(str_w)
+
+        path = '/'.join([self.save_path, dir_name])
         if not os.path.exists(path):
             os.makedirs(path)
-        actor_file = file + 'actor.pkl'
-        critic_file = file + 'critic.pkl'
+        if prefix is None:
+            actor_file = 'actor.pkl'
+            critic_file = 'critic.pkl'
+        else:
+            actor_file = prefix + 'actor.pkl'
+            critic_file = prefix + 'critic.pkl'
         actor_file = '/'.join([path, actor_file])
         critic_file = '/'.join([path, critic_file])
         torch.save(self.actor.net.state_dict(), actor_file)

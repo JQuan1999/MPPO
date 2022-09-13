@@ -36,8 +36,8 @@ class PPO_ENV:
         self.job_num = len(self.jobs)
         self.mch_num = len(self.machines)
         self.new_num = len(self.new_jobs)
-        self.sa_state_dim = 19
-        self.ra_state_dim = 19
+        self.sa_state_dim = 18
+        self.ra_state_dim = 18
         self.sys_state_dim = 8
         self.w_dim = 3
         self.sa_action_space = 5
@@ -103,17 +103,17 @@ class PPO_ENV:
         # 机器编号,机器队列工件数目,可用时间,预估可用时间,机器利用率,机器累计能耗,机器延迟时间
         id = float(mach_index)
         num = self.machines[mach_index].get_queue_job_num()
-        ava_t = self.machines[mach_index].ava_t
-        est_ava_t = self.machines[mach_index].get_estimate_ava_time()
+        ava_t = self.machines[mach_index].ava_t / self.t
+        est_ava_t = self.machines[mach_index].get_estimate_ava_time() / self.t
         use_ratio = self.machines[mach_index].cal_use_ratio()
-        ect = self.machines[mach_index].cal_total_ect()
+        ect = self.machines[mach_index].cal_total_ect() / self.t
         ids = self.machines[mach_index].get_queue_job_index()
         td = 0
         for job_index in ids:
             td += self.jobs[job_index].get_tardiness(ava_t)
-        # mach_state = [id, num, ava_t, est_ava_t, use_ratio, ect, td]
-        # sa_state = state + diff + mach_state + self.w
-        sa_state = state + diff + self.w
+        mach_state = [id, num, ava_t, est_ava_t, use_ratio, ect, td]
+        sa_state = state + mach_state + self.w
+        # sa_state = state + diff + self.w
         return sa_state
 
     def get_ra_state(self, job_index):
@@ -134,8 +134,8 @@ class PPO_ENV:
         pt = self.jobs[job_index].pre_op.ave_pt
         ect = self.jobs[job_index].pre_op.ave_ect
         jstate = [id, cr, start, td, remain, pt, ect]
-        ra_state = state + diff + self.w
-        # ra_state = state + jstate + self.w
+        # ra_state = state + diff + self.w
+        ra_state = state + jstate + self.w
         return ra_state
 
     def cal_schedule_time(self, ra):

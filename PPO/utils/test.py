@@ -211,5 +211,25 @@ def test15():
     # print(a)
 
 
+def test16():
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import axes3d
+
+    path = '../param/pareto_weight/09-12-20-56/j20_m20_n50.npy'
+    result = np.load(path)
+    high = np.tile(result.max(axis=0), (result.shape[0], 1))
+    low = np.tile(result.min(axis=0), (result.shape[0], 1))
+    norm = (result - low) / (high - low + 1e-5)
+
+    fig = plt.figure(1)
+    ax = fig.gca(projection='3d')
+    ax.set_title(path.split('/')[-1])
+    ax.set_xlabel('use ratio')
+    ax.set_ylabel('energy')
+    ax.set_zlabel('tardiness')
+    ax.scatter(norm[:, 0], norm[:, 1], norm[:, 2], marker='o')
+    plt.pause(10)
+
+
 if __name__ == '__main__':
-    test14()
+    test16()

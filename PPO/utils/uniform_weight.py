@@ -4,7 +4,7 @@ from itertools import combinations
 from scipy.special import comb
 
 
-def init_weight(weight_size, objective, low_bound=0.1):
+def init_weight(weight_size, objective, low_bound=0.0):
     h1 = 1
     while comb(h1 + objective - 1, objective - 1) <= weight_size:
         h1 = h1 + 1
@@ -42,6 +42,8 @@ def init_weight(weight_size, objective, low_bound=0.1):
 
 
 def cweight(weight, env=None, sa=None, ra=None):
+    if len(weight.shape) != 2:
+        raise Exception(f'weight shape should be 2, but got {weight.shape}, weight = {weight}')
     wsize = weight.shape[0]
     w = weight[np.random.randint(low=0, high=wsize)]
     if env is not None:
