@@ -231,5 +231,14 @@ def test16():
     plt.pause(10)
 
 
+def test17():
+    dot1 = np.random.random(50).astype(float)
+    dot1 = dot1
+    dot2 = dot1 + 1.
+    plt.scatter(dot1, dot1, marker='*')
+    plt.scatter(dot2, dot2, marker='o')
+    plt.show()
+
+
 if __name__ == '__main__':
-    test16()
+    test14()

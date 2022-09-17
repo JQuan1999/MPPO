@@ -120,6 +120,8 @@ class Route_Agent:
         return loss.item()
 
     def learn(self, state_, done):
+        if state_ is None:
+            raise Exception('state_ is None')
         target = self.cal_target(state_, done)
         self.old_actor.load_state_dict(self.actor.state_dict())
         actor_loss = 0

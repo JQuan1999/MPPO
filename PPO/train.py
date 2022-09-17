@@ -24,6 +24,8 @@ parser.add_argument('--sa_state_dim', type=int, default=15, help='sequence agent
 parser.add_argument('--ra_state_dim', type=int, default=15, help='route agent state dim')
 parser.add_argument('--sa_action_space', type=int, default=5, help='sequence agent action space')
 parser.add_argument('--ra_action_space', type=int, default=4, help='route agent action space')
+parser.add_argument('--sa_ckpt_path', type=str, default='./param/sa', help='path to save sa ckpt')
+parser.add_argument('--ra_ckpt_path', type=str, default='./param/ra', help='path to save ra ckpt')
 
 
 def show_reward(sa_r, ra_r):
@@ -55,13 +57,11 @@ def train():
             for jf in json_f:
                 jf_path = '/'.join([dir_path, jf])
                 train_data.append(jf_path)
-    train_data = train_data[:10]
     train_data_size = len(train_data)
     print(train_data_size)
 
     args = parser.parse_args()
     weight, size = init_weight(args.weight_size, args.objective, low_bound=0.1)
-    weight = weight[10].reshape(1, -1)
     sa = Sequence_Agent(args)
     ra = Route_Agent(args)
     sa_rlist = []
@@ -91,18 +91,22 @@ def train():
                 mach_index2 = env.route_rule(job_index, ra_action)
                 ra_reward, done2 = env.ra_step(mach_index2, job_index, t)
                 ra.store(ra_state, ra_action, ra_reward, done2)
-                r2 += np.dot(env.w, np.array(ra_reward))
+                r2 += np.dot(env.w2, np.array(ra_reward))
+
             sa_state_, mach_index1, t = env.step(ra, t)
             sa.buffer.store(sa_state, sa_action, sa_reward, sa_state_, done1)
-            r1 += np.dot(env.w, np.array(sa_reward))
-            if sa.buffer.cnt == args.batch_size or ra.buffer.cnt == args.batch_size:
-                if sa.buffer.cnt != 0:
-                    sa_actor_loss, sa_critic_loss = sa.learn(sa_state_, done1)
-                    print(f'step {sa.learn_step},sa actor_loss = {sa_actor_loss}, sa critic_loss = {sa_critic_loss}')
-                if ra.buffer.cnt != 0:
-                    ra_actor_loss, ra_critic_loss = ra.learn(ra_state, done2)
-                    print(f'step {ra.learn_step},ra actor_loss = {ra_actor_loss}, ra critic_loss = {ra_critic_loss}')
-                cweight(weight, env, sa, ra)
+            r1 += np.dot(env.w1, np.array(sa_reward))
+
+            if sa.buffer.cnt == args.batch_size:
+                sa_actor_loss, sa_critic_loss = sa.learn(sa_state_, done1)
+                cweight(weight, env, sa=sa, mode=1)
+                # print(f'step {sa.learn_step},sa actor_loss = {sa_actor_loss}, sa critic_loss = {sa_critic_loss}')
+
+            if ra.buffer.cnt == args.batch_size:
+                ra_actor_loss, ra_critic_loss = ra.learn(ra_state, done2)
+                cweight(weight, env, ra=ra, mode=2)
+                # print(f'step {ra.learn_step},ra actor_loss = {ra_actor_loss}, ra critic_loss = {ra_critic_loss}')
+
             sa_state = sa_state_
             step += 1
 
@@ -117,9 +121,9 @@ def train():
         ra_rlist.append(r2)
         if episode == 20:
             print(1)
-        # if episode % 200 == 0 and episode != 0:
-        #    sa.save(f'{episode}epochMix_B{args.batch_size}_W{args.weight_size}_')
-        #    ra.save(f'{episode}epochMix_B{args.batch_size}_W{args.weight_size}_')
+        if episode % 200 == 0 and episode != 0:
+            sa.save(f'{episode}epochMix_B{args.batch_size}_W{args.weight_size}_')
+            ra.save(f'{episode}epochMix_B{args.batch_size}_W{args.weight_size}_')
     sa.save(f'{args.episodes}epochMix_B{args.batch_size}_W{args.weight_size}_')
     ra.save(f'{args.episodes}epochMix_B{args.batch_size}_W{args.weight_size}_')
     sa.show_loss()

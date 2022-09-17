@@ -56,7 +56,8 @@ class PPO_ENV:
         self.d_flag = False
         self.state1 = np.zeros(self.sys_state_dim).tolist()
         self.state2 = np.zeros(self.sys_state_dim).tolist()
-        self.w = None
+        self.w1 = None
+        self.w2 = None
         self.color = np.array(color).reshape(-1, 3).tolist()
         self.routed_flag = np.zeros(len(self.jobs)).astype(bool)
         self.finished_flag = np.zeros(len(self.jobs)).astype(bool)
@@ -112,7 +113,7 @@ class PPO_ENV:
         for job_index in ids:
             td += self.jobs[job_index].get_tardiness(ava_t)
         mach_state = [id, num, ava_t, est_ava_t, use_ratio, ect, td]
-        sa_state = state + mach_state + self.w
+        sa_state = state + mach_state + self.w1
         # sa_state = state + diff + self.w
         return sa_state
 
@@ -135,7 +136,7 @@ class PPO_ENV:
         ect = self.jobs[job_index].pre_op.ave_ect
         jstate = [id, cr, start, td, remain, pt, ect]
         # ra_state = state + diff + self.w
-        ra_state = state + jstate + self.w
+        ra_state = state + jstate + self.w2
         return ra_state
 
     def cal_schedule_time(self, ra):
