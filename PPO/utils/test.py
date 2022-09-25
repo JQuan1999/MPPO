@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
+
 def test1():
     xs = np.random.randint(low=0,high=10,size=10)
     print(xs)
@@ -215,8 +216,10 @@ def test16():
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import axes3d
 
-    path = '../param/pareto_weight/09-12-20-56/j20_m20_n50.npy'
+    path = '../param/pareto_weight/09-19-13-27/j20_m20_n50.npy'
     result = np.load(path)
+    result[:, 1] *= -1
+    result[:, 2] *= -1
     high = np.tile(result.max(axis=0), (result.shape[0], 1))
     low = np.tile(result.min(axis=0), (result.shape[0], 1))
     norm = (result - low) / (high - low + 1e-5)
@@ -241,4 +244,4 @@ def test17():
 
 
 if __name__ == '__main__':
-    test14()
+    test16()

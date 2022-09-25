@@ -1,6 +1,5 @@
 # author by 蒋权
 import numpy as np
-import sys
 import matplotlib.pyplot as plt
 
 from utils.env_utils import get_data
@@ -36,8 +35,8 @@ class PPO_ENV:
         self.job_num = len(self.jobs)
         self.mch_num = len(self.machines)
         self.new_num = len(self.new_jobs)
-        self.sa_state_dim = 18
-        self.ra_state_dim = 18
+        self.sa_state_dim = 19
+        self.ra_state_dim = 19
         self.sys_state_dim = 8
         self.w_dim = 3
         self.sa_action_space = 5
@@ -54,8 +53,8 @@ class PPO_ENV:
         self.discount1 = 0.9
         self.discount2 = 0.9
         self.d_flag = False
-        self.state1 = np.zeros(self.sys_state_dim).tolist()
-        self.state2 = np.zeros(self.sys_state_dim).tolist()
+        self.state1 = np.zeros(self.sys_state_dim).tolist()  # state1 为sa的上一状态
+        self.state2 = np.zeros(self.sys_state_dim).tolist()  # state2 为ra的上一状态
         self.w1 = None
         self.w2 = None
         self.color = np.array(color).reshape(-1, 3).tolist()
@@ -102,19 +101,19 @@ class PPO_ENV:
         diff = (np.array(state) - self.state1).tolist()
         self.state_update(state, mode=1)
         # 机器编号,机器队列工件数目,可用时间,预估可用时间,机器利用率,机器累计能耗,机器延迟时间
-        id = float(mach_index)
-        num = self.machines[mach_index].get_queue_job_num()
-        ava_t = self.machines[mach_index].ava_t / self.t
-        est_ava_t = self.machines[mach_index].get_estimate_ava_time() / self.t
-        use_ratio = self.machines[mach_index].cal_use_ratio()
-        ect = self.machines[mach_index].cal_total_ect() / self.t
-        ids = self.machines[mach_index].get_queue_job_index()
-        td = 0
-        for job_index in ids:
-            td += self.jobs[job_index].get_tardiness(ava_t)
-        mach_state = [id, num, ava_t, est_ava_t, use_ratio, ect, td]
-        sa_state = state + mach_state + self.w1
-        # sa_state = state + diff + self.w
+        # id = float(mach_index)
+        # num = self.machines[mach_index].get_queue_job_num()
+        # ava_t = self.machines[mach_index].ava_t / self.t
+        # est_ava_t = self.machines[mach_index].get_estimate_ava_time() / self.t
+        # use_ratio = self.machines[mach_index].cal_use_ratio()
+        # ect = self.machines[mach_index].cal_total_ect() / self.t
+        # ids = self.machines[mach_index].get_queue_job_index()
+        # td = 0
+        # for job_index in ids:
+        #     td += self.jobs[job_index].get_tardiness(ava_t)
+        # mach_state = [id, num, ava_t, est_ava_t, use_ratio, ect, td]
+        # sa_state = state + mach_state + self.w1
+        sa_state = state + diff + self.w1
         return sa_state
 
     def get_ra_state(self, job_index):
@@ -122,21 +121,21 @@ class PPO_ENV:
         diff = (np.array(state) - self.state2).tolist()
         self.state_update(state, mode=2)
         # 工件编号,工件完成率,工件开始时间,延迟时间,剩余时间,当前工序加工时间,工序能耗
-        id = float(job_index)
-        cr = self.jobs[job_index].get_finish_rate()
-        start = self.jobs[job_index].pre_start
-        ava_t = np.zeros(len(self.machines))
-        for i in range(len(self.machines)):
-            m = self.machines[i]
-            ava_t[i] = m.ava_t
-        tcur = ava_t.mean()
-        td = self.jobs[job_index].get_tardiness(tcur)
-        remain = self.jobs[job_index].get_remain_pt()
-        pt = self.jobs[job_index].pre_op.ave_pt
-        ect = self.jobs[job_index].pre_op.ave_ect
-        jstate = [id, cr, start, td, remain, pt, ect]
-        # ra_state = state + diff + self.w
-        ra_state = state + jstate + self.w2
+        # id = float(job_index)
+        # cr = self.jobs[job_index].get_finish_rate()
+        # start = self.jobs[job_index].pre_start
+        # ava_t = np.zeros(len(self.machines))
+        # for i in range(len(self.machines)):
+        #     m = self.machines[i]
+        #     ava_t[i] = m.ava_t
+        # tcur = ava_t.mean()
+        # td = self.jobs[job_index].get_tardiness(tcur)
+        # remain = self.jobs[job_index].get_remain_pt()
+        # pt = self.jobs[job_index].pre_op.ave_pt
+        # ect = self.jobs[job_index].pre_op.ave_ect
+        # jstate = [id, cr, start, td, remain, pt, ect]
+        # ra_state = state + jstate + self.w2
+        ra_state = state + diff + self.w2
         return ra_state
 
     def cal_schedule_time(self, ra):
@@ -268,7 +267,8 @@ class PPO_ENV:
 
         return [r1, r2, r3]
 
-    def sa_step(self, mach_index, job_index):
+    def sa_step(self, mach_index, sa_action, t):
+        job_index = self.sequence_rule(mach_index, sa_action, t)
         # 从buffer选择job_index的工件进行加工
         op, start, end = self.machines[mach_index].sa_step(job_index)
         op.sa_step(start, end)
@@ -281,9 +281,13 @@ class PPO_ENV:
         else:
             done = False
         reward = self.sa_reward(mach_index)
-        return reward, done, end
+        return job_index, reward, done, end
 
-    def ra_step(self, mach_index, job_index, t):
+    def ra_step(self, job_index, ra_action, t):
+        if len(self.jobs[job_index].pre_op.ava_mach_number) == 1:
+            mach_index = self.jobs[job_index].pre_op.ava_mach_number[0]
+        else:
+            mach_index = self.route_rule(job_index, ra_action)
         # 将job_index的pre_op插入mach_index的buffer中
         op = self.jobs[job_index].pre_op
         start = self.jobs[job_index].pre_start
@@ -350,17 +354,13 @@ class PPO_ENV:
 
     def reset(self, ra=None, t=0):
         job_index = np.arange(self.job_num)
-        np.random.shuffle(job_index)
+        # np.random.shuffle(job_index)
         ra_state = self.get_ra_state(job_index[0])
 
         for i in range(0, self.job_num):
             j = job_index[i]
             action = ra.choose_action(ra_state)
-            if len(self.jobs[j].pre_op.ava_mach_number) == 1:
-                mach_index = self.jobs[j].pre_op.ava_mach_number[0]
-            else:
-                mach_index = self.route_rule(j, action)
-            reward, done = self.ra_step(mach_index, j, t)
+            reward, done = self.ra_step(j, action, t)
             if i != self.job_num - 1:
                 ra_state_ = self.get_ra_state(job_index[i + 1])
             else:
@@ -401,7 +401,7 @@ class PPO_ENV:
         ra_state = self.njob_ra_state(job_index)
         action = ra.choose_action(ra_state)
         mach_index = self.route_rule(job_index, action)
-        reward, done = self.ra_step(mach_index, job_index, t)
+        reward, done = self.ra_step(job_index, action, t)
         ra.store(ra_state, action, reward, done)
         return mach_index
 
