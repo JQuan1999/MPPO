@@ -50,7 +50,7 @@ def train():
             step = 0
             done2 = False
             inst = train_data[(i * args.epochs + epoch) % train_data_size]
-            env = PPO_ENV(inst)
+            env = PPO_ENV(inst, args)
             cweight(w, env, sa, ra)
             sa_state, mach_index1, t = env.reset(ra)
             while True:

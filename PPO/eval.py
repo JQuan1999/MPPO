@@ -63,7 +63,7 @@ def eval_():
             a2 = []
             step = 0
             done2 = False
-            env = PPO_ENV(test_data[j])
+            env = PPO_ENV(test_data[j], args)
             cweight(weight, env, ra, sa)
             sa_state, mach_index1, t = env.reset(ra)
             while True:

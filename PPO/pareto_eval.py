@@ -51,7 +51,7 @@ def eval_():
     for i in range(weight.shape[0]):
         sa.load(sa_ckpt[i])
         ra.load(ra_ckpt[i])
-        env = PPO_ENV(test_data)
+        env = PPO_ENV(test_data, args)
         w = weight[i].reshape(1, -1)
         cweight(w, env, ra, sa)
         sa_state, mach_index1, t = env.reset(ra)
