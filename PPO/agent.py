@@ -51,7 +51,7 @@ class Route_Agent:
         self.action_dim = args.ra_action_space
         self.actor = Actor(self.state_dim, self.action_dim, n_hidden).to(device)
         self.old_actor = copy.deepcopy(self.actor).to(device)
-        self.critic = Critic(self.state_dim, args.objective, n_hidden).to(device)
+        self.critic = Critic(self.state_dim, 1, n_hidden).to(device)
         self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=self.lr)
         self.critic_optim = torch.optim.Adam(self.critic.parameters(), lr=self.lr)
         self.buffer = Buffer(self.batch_size)
@@ -77,15 +77,15 @@ class Route_Agent:
         for r in reward[::-1]:
             target = target + self.gamma * r
             target_list.insert(0, target.tolist())
-        target_list = np.dot(np.array(target_list), self.w).tolist()
+        # target_list = np.dot(np.array(target_list), self.w).tolist()
         target = torch.FloatTensor(target_list).to(device)
         return target
 
     def cal_advantage(self, target):
         state = torch.tensor(self.buffer.state, dtype=torch.float).to(device)
         v = self.critic(state)
-        w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
-        v = torch.mm(v, w).reshape(-1, )
+        # w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
+        # v = torch.mm(v, w).reshape(-1, )
 
         adv = (target - v).detach()
         return adv
@@ -93,8 +93,8 @@ class Route_Agent:
     def critic_update(self, target):
         state = torch.FloatTensor(self.buffer.state).to(device)
         v = self.critic(state)
-        w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
-        v = torch.mm(v, w).reshape(-1, )
+        # w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
+        # v = torch.mm(v, w).reshape(-1, )
         mse_loss = torch.nn.MSELoss()
         loss = mse_loss(v, target)
         self.critic_optim.zero_grad()
@@ -218,7 +218,7 @@ class Sequence_Agent:
         self.action_dim = args.sa_action_space
         self.actor = Actor(self.state_dim, self.action_dim, n_hidden).to(device)
         self.old_actor = copy.deepcopy(self.actor).to(device)
-        self.critic = Critic(self.state_dim, args.objective, n_hidden).to(device)
+        self.critic = Critic(self.state_dim, 1, n_hidden).to(device)
         self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=self.lr)
         self.critic_optim = torch.optim.Adam(self.critic.parameters(), lr=self.lr)
         self.buffer = Buffer(self.batch_size)
@@ -246,15 +246,15 @@ class Sequence_Agent:
         for r in reward[::-1]:
             target = target + self.gamma * r
             target_list.insert(0, target.tolist())
-        target_list = np.dot(np.array(target_list), self.w).tolist()
+        # target_list = np.dot(np.array(target_list), self.w).tolist()
         target = torch.FloatTensor(target_list).to(device)
         return target
 
     def cal_advantage(self, target):
         state = torch.tensor(self.buffer.state, dtype=torch.float).to(device)
         v = self.critic(state)
-        w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
-        v = torch.mm(v, w).reshape(-1, )
+        # w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
+        # v = torch.mm(v, w).reshape(-1, )
 
         adv = (target - v).detach()
         return adv
@@ -280,8 +280,8 @@ class Sequence_Agent:
     def critic_update(self, target):
         state = torch.FloatTensor(self.buffer.state).to(device)
         v = self.critic(state)
-        w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
-        v = torch.mm(v, w).reshape(-1, )
+        # w = torch.from_numpy(self.w).float().unsqueeze(1).to(device)
+        # v = torch.mm(v, w).reshape(-1, )
         mse_loss = torch.nn.MSELoss()
         loss = mse_loss(v, target)
         self.critic_optim.zero_grad()

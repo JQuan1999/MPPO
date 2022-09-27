@@ -12,8 +12,8 @@ def config():
     parser.add_argument('--epsilon', type=float, default=0.2, help='epsilon')
     parser.add_argument('--weight_size', type=int, default=200, help='sample weight')
     parser.add_argument('--objective', type=int, default=3, help='objective size')
-    parser.add_argument('--sa_state_dim', type=int, default=16, help='sequence agent state dim')
-    parser.add_argument('--ra_state_dim', type=int, default=16, help='route agent state dim')
+    parser.add_argument('--sa_state_dim', type=int, default=15, help='sequence agent state dim')
+    parser.add_argument('--ra_state_dim', type=int, default=15, help='route agent state dim')
     parser.add_argument('--sa_action_space', type=int, default=5, help='sequence agent action space')
     parser.add_argument('--ra_action_space', type=int, default=4, help='route agent action space')
 

@@ -61,8 +61,6 @@ def get_data(path):
 
 def train():
     args = config()
-    args.sa_state_dim = 15
-    args.ra_state_dim = 15
     args.train_data = "./data/train/"
     train_data = get_data(args.train_data)
     train_data_size = len(train_data)

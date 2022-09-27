@@ -220,7 +220,8 @@ class PPO_ENV:
         self.last_tardiness = mean_tardiness
 
         r3 = 0
-        return [r1, r2, r3]
+        reward = np.dot(np.array([r1, r2, r3]), np.array(self.w1))
+        return reward
 
     def ra_reward(self, mach_index, op):
         estimate_use_ratio = np.zeros(self.mch_num)
@@ -264,8 +265,8 @@ class PPO_ENV:
         else:
             r3 = -1
         self.last_ep_ratio = ep_ratio
-
-        return [r1, r2, r3]
+        reward = np.dot(np.array([r1, r2, r3]), np.array(self.w2))
+        return reward
 
     def sa_step(self, mach_index, sa_action, t):
         job_index = self.sequence_rule(mach_index, sa_action, t)
@@ -416,7 +417,7 @@ class PPO_ENV:
         for j in range(len(self.jobs)):
             tardiness += self.jobs[j].get_tardiness(self.t)
         mean_use_ratio = np.array(use_ratio).mean()
-        return [mean_use_ratio, ect, tardiness]
+        return [mean_use_ratio, tardiness, ect]
 
     def render(self, t=0.5):
         plt.title('Gantt chart of scheduling')
