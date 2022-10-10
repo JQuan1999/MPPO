@@ -55,8 +55,8 @@ class PPO_ENV:
         self.d_flag = False
         self.state1 = np.zeros(self.sys_state_dim).tolist()  # state1 为sa的上一状态
         self.state2 = np.zeros(self.sys_state_dim).tolist()  # state2 为ra的上一状态
-        self.w1 = None
-        self.w2 = None
+        self.w1 = np.zeros(args.objective)
+        self.w2 = np.zeros(args.objective)
         self.color = np.array(color).reshape(-1, 3).tolist()
         self.routed_flag = np.zeros(len(self.jobs)).astype(bool)
         self.finished_flag = np.zeros(len(self.jobs)).astype(bool)

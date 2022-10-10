@@ -6,29 +6,7 @@ from agent import Sequence_Agent, Route_Agent
 from env import PPO_ENV
 from utils.config import config
 from utils.uniform_weight import init_weight, cweight
-
-
-def get_data(path):
-    files = os.listdir(path)
-    train_data = []
-    for file in files[:]:
-        dir_path = '/'.join([path, file])
-        if os.path.exists(dir_path):
-            json_f = os.listdir(dir_path)
-            for jf in json_f:
-                jf_path = '/'.join([dir_path, jf])
-                train_data.append(jf_path)
-    return train_data
-
-
-def get_weight(args):
-    weight, size = init_weight(args.weight_size, args.objective, low_bound=0.1)
-    dir_name = os.path.dirname(args.sa_ckpt_path)
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-    weight_path = dir_name + '/' + 'weight.npy'
-    np.save(weight_path, weight)
-    return weight, size
+from utils.utils import get_data, get_weight
 
 
 def train():

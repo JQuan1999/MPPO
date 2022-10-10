@@ -9,31 +9,8 @@ import time
 from env import PPO_ENV
 from agent import Sequence_Agent, Route_Agent
 from utils.uniform_weight import init_weight, cweight
-from utils.generator_data import NoIndentEncoder
+from utils.utils import get_data, save_result
 from utils.config import config
-
-
-def save_result(obj_record, args):
-    result = json.dumps(obj_record, indent=2, sort_keys=True, cls=NoIndentEncoder)
-    dir_path = args.log_dir
-    if not os.path.exists(dir_path):
-        os.makedirs(dir_path)
-    name = time.strftime('%m-%d-%H-%M') + '-agent.json'
-    file_path = '/'.join([dir_path, name])
-    with open(file_path, 'w') as f:
-        f.write(result)
-
-
-def get_data(dpath):
-    if os.path.isdir(dpath):
-        files = os.listdir(dpath)
-        test_data = []
-        for file in files[:]:
-            file_path = '/'.join([dpath, file])
-            test_data.append(file_path)
-        return test_data
-    else:
-        return [dpath]
 
 
 def eval_():

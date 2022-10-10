@@ -7,10 +7,10 @@ from env import PPO_ENV
 
 
 class RULE_ENV(PPO_ENV):
-    def __init__(self, instance, sequence_action, route_action, t=5000):
-        super(RULE_ENV, self).__init__(instance, t)
-        self.sequence_action = sequence_action
-        self.route_action = route_action
+    def __init__(self, ac, instance, args, t=5000):
+        super(RULE_ENV, self).__init__(instance, args, t)
+        self.sequence_action = ac[0]
+        self.route_action = ac[1]
 
     def cal_schedule_time(self, ra=None):
         init = False
@@ -38,7 +38,7 @@ class RULE_ENV(PPO_ENV):
 
     def njob_route(self, job_index, t, ra=None):
         mach_index = self.route_rule(job_index, self.route_action)
-        _, done = self.ra_step(mach_index, job_index, t)
+        _, done = self.ra_step(job_index, self.route_action, t)
         return mach_index
 
     def step(self, ra, t):
@@ -54,10 +54,6 @@ class RULE_ENV(PPO_ENV):
         np.random.shuffle(job_index)
         for i in range(self.job_num):
             j = job_index[i]
-            if len(self.jobs[i].pre_op.ava_mach_number) == 1:
-                mach_index = self.jobs[j].pre_op.ava_mach_number[0]
-            else:
-                mach_index = self.route_rule(job_index[i], self.route_action)
-            self.ra_step(mach_index, j, t)
+            self.ra_step(j, self.route_action, t)
         mach_index, t = self.cal_schedule_time(ra)
         return mach_index, t
