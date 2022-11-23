@@ -189,9 +189,9 @@ class PPO_ENV:
         else:
             r2 = -1
 
-        self.sum_ect += op.get_pt(mach_index)
-        self.sum_pt += op.get_ect(mach_index)
-        ep_ratio = self.sum_ect / self.sum_pt
+        self.sum_pt += op.get_pt(mach_index)
+        self.sum_ect += op.get_ect(mach_index)
+        ep_ratio = self.sum_pt / self.sum_ect
         if ep_ratio > self.last_ep_ratio:
             r3 = 1
         elif ep_ratio == self.last_ep_ratio:
