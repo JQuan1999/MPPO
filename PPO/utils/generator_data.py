@@ -127,22 +127,30 @@ def generator_insert_job_info(data, args, new_job_key, new_job_format):
 
 def generator_data():
     args = parser.parse_args()
-    path = "../data/test"
+    path = "../data/test4"
 
-    jn = [10, 10, 10, 20, 20, 20, 30, 30, 30]  # 初始工件数量
-    mn = [10, 10, 10, 20, 20, 20, 30, 30, 30]  # 加工机器数量
-    nn = [20, 50, 100, 20, 50, 100, 20, 50, 100]  # 新工件数量
-    times = 20
+    # jn = [10, 20, 20, 30, 30, 50]
+    # mn = [5, 5, 10, 10, 20, 20]
+    # nn = [10, 20, 20, 50, 50, 100]
+    jn = [7, 10, 15, 20, 30, 40, 45, 60]
+    mn = [5, 5, 10, 10, 20, 20, 30, 30]
+    nn = [10, 15, 20, 30, 40, 60, 60, 90]
+    inst = []
+    # for j_n in jn:
+    #     for m_n in mn:
+    #         for n_n in nn:
+    #             inst.append([j_n, m_n, n_n])
+    for i in range(len(jn)):
+        inst.append([jn[i], mn[i], nn[i]])
+    times = 3
     machine_key = "machine"
     machine_format = "machine{}"
     job_key = "job"
     job_format = "job{}"
     new_job_key = "new_job"
     new_job_format = "new_job{}"
-    for i in range(len(jn)):
-        j = jn[i]
-        m = mn[i]
-        n = nn[i]
+    for i in range(len(inst)):
+        j, m, n = inst[i]
         dire = 'j{}_m{}_n{}'.format(j, m, n)
         data_path = '/'.join([path, dire])
         if not os.path.exists(data_path):
@@ -174,7 +182,7 @@ def generator_data():
 
 def generate_single():
     args = parser.parse_args()
-    path = '../data/train'
+    path = '../data/train2'
     machine_key = "machine"
     machine_format = "machine{}"
     job_key = "job"
@@ -183,9 +191,9 @@ def generate_single():
     new_job_format = "new_job{}"
     data = {machine_key: {}, job_key: {}, new_job_key: {}}
 
-    args.init_job_num = 10
+    args.init_job_num = 20
     args.machine_num = 10
-    args.new_job_num = 10
+    args.new_job_num = 20
     args.operation_num = [args.machine_num // 2, args.machine_num]
     args.available_machine = [1, args.machine_num]
 
@@ -207,7 +215,7 @@ def generate_single():
 # 生成特定组合的数据
 def generate_spec_data():
     args = parser.parse_args()
-    path = '../data/train'
+    path = '../data/train2'
     machine_key = "machine"
     machine_format = "machine{}"
     job_key = "job"
@@ -215,10 +223,10 @@ def generate_spec_data():
     new_job_key = "new_job"
     new_job_format = "new_job{}"
 
-    jn = [20]  # 初始工件数量
+    jn = [30]  # 初始工件数量
     mn = [20]  # 加工机器数量
-    nn = [50]  # 新工件数量
-    times = 100
+    nn = [40]  # 新工件数量
+    times = 30
     for k in range(len(jn)):
         j = jn[k]
         m = mn[k]

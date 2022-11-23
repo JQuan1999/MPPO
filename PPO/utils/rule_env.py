@@ -1,14 +1,12 @@
 # author by 蒋权
 import numpy as np
-import sys
-sys.path.append('..')
 
 from env import PPO_ENV
 
 
 class RULE_ENV(PPO_ENV):
-    def __init__(self, ac, instance, args, t=5000):
-        super(RULE_ENV, self).__init__(instance, args, t)
+    def __init__(self, ac, instance, args):
+        super(RULE_ENV, self).__init__(instance, args)
         self.sequence_action = ac[0]
         self.route_action = ac[1]
 

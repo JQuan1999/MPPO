@@ -6,52 +6,34 @@ import time
 import numpy as np
 from utils.config import config
 from utils.rule_env import RULE_ENV
-from utils.utils import save_result
+from utils.utils import save_result, get_data
 
 
-def get_action_comb(args):
-    action_comb = []
-    for i in range(args.sa_action_space):
-        for j in range(args.ra_action_space):
-            action_comb.append((i, j))
-    action_comb = np.array(action_comb)
-    np.random.shuffle(action_comb)
-    return action_comb.tolist()
+np.random.seed(1)
 
 
-def get_random_action(act_comb):
-    act_dim = len(act_comb)
-    index = np.random.randint(low=0, high=act_dim)
-    return act_comb[index]
+def _random_eval(sa_action, ra_action, args, result_file):
+    assert type(sa_action) is list, f"sa action {sa_action} is not a list"
+    assert type(ra_action) is list, f"ra action {ra_action} is not a list"
 
+    def get_comb_action():
+        ac1 = sa_action[np.random.randint(len(sa_action))]
+        ac2 = ra_action[np.random.randint(len(ra_action))]
+        return ac1, ac2
 
-def change_action(act_comb, env):
-    ac = get_random_action(act_comb)
-    env.sequence_action = ac[0]
-    env.route_action = ac[1]
-
-
-def random_eval():
-    args = config()
-    args.test_data = './data/test'
-    args.weight_path = './param/pareto_weight/09-19-13-27/weight.npy'
     weight = np.load(args.weight_path)
     size = weight.shape[0]
-    instance = ['/'.join([args.test_data, insdir]) for insdir in os.listdir(args.test_data)]
-    test_datas = []
-    for ins in instance:
-        test_datas.append('/'.join([ins, 't0.json']))
-    act_comb = get_action_comb(args)
+    test_datas = ['/'.join([args.test_data, insdir, 't0.json']) for insdir in os.listdir(args.test_data)][2:]
 
-    sa_action = ['FIFO', 'DS', 'EDD', 'CR', 'SRPT']
-    ra_action = ['SPT', 'SECM', 'EAM', 'SQT']
     result = {}
-    result_dir = './log/eval/multi-random.json'
+
     for index, data in enumerate(test_datas):
         objs = np.zeros((size, args.objective))
+        data_name = data.split('/')[-2]
+        begin = time.time()
         for i in range(size):
-            ac = get_random_action(act_comb)
-            env = RULE_ENV(ac, data, args, 5000)
+            ac = get_comb_action()
+            env = RULE_ENV(ac, data, args)
             done2 = False
             mach_index1, t = env.reset()
             while True:
@@ -67,13 +49,60 @@ def random_eval():
                 mach_index1, t = env.step(None, t)
                 if done1:
                     break
-                change_action(act_comb, env)
+                ac = get_comb_action()
+                env.sequence_action = ac[0]
+                env.route_action = ac[1]
+            env.render(t=100, key=data_name)
             obj = env.cal_objective()
             objs[i] = obj
-            print(f'data {instance[index]} | obj1 = {obj[0]}, obj2 = {obj[1]}, obj3 = {obj[2]}')
-        result[instance[index]] = objs.tolist()
-    save_result(result, result_dir)
+            print(f'data {data_name} | obj1 = {obj[0]}, obj2 = {obj[1]}, obj3 = {obj[2]}')
+        t = time.time() - begin
+        result[data_name] = {}
+        result[data_name]["time"] = t
+        result[data_name]["result"] = objs.tolist()
+    save_result(result, result_file)
     print('end')
+
+
+def random_eval():
+    args = config()
+    args.weight_path = './param/pareto_weight/10-24-16-53/weight.npy'
+    args.test_data = "./data/test4"
+    sa_action = [i for i in range(args.sa_action_space)]
+    ra_action = [i for i in range(args.sa_action_space)]
+    prefix = time.strftime('%m-%d-%H-%M')
+    name = prefix + "-multi-random.json"
+    result_file = './log/eval/' + name
+    _random_eval(sa_action, ra_action, args, result_file)
+    print('----------end------------')
+
+
+def part_random():
+    args = config()
+    args.weight_path = './param/pareto_weight/10-24-16-53/weight.npy'
+    args.test_data = "./data/test4"
+    sa_action = [i for i in range(args.sa_action_space)]
+    ra_action = [i for i in range(args.sa_action_space)]
+    sa_action_name = ['FIFO', 'MS', 'EDD', 'CR']
+    ra_action_name = ['SPT', 'SEC', 'EA', 'SQT']
+    for i in range(2):
+        if i == 0:
+            choose_action = sa_action
+        else:
+            choose_action = ra_action
+        for c_a in choose_action:
+            if i == 0:
+                action_name = sa_action_name[c_a]
+            else:
+                action_name = ra_action_name[c_a]
+            prefix = time.strftime('%m-%d-%H-%M')
+            name = prefix + f"-random-{action_name}.json"
+            result_file = './log/eval/' + name
+            if i == 0:
+                _random_eval([c_a], ra_action, args, result_file)
+            else:
+                _random_eval(sa_action, [c_a], args, result_file)
+            print('------------------------')
 
 
 if __name__ == '__main__':

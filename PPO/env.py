@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from utils.env_utils import get_data
 from utils.dispatch_rule import job_dispatch, machine_dispatch
 
+plt.rcParams['font.sans-serif']=['SimHei'] #显示中文
+
 color = [0.77, 0.18, 0.78,
          0.21, 0.33, 0.64,
          0.88, 0.17, 0.56,
@@ -29,7 +31,7 @@ color = [0.77, 0.18, 0.78,
 
 
 class PPO_ENV:
-    def __init__(self, instance, args, t=5000):
+    def __init__(self, instance, args):
         self.jobs, self.machines, self.new_jobs = get_data(instance)
         self.new_arrival_t = [self.new_jobs[i].arrival_t for i in range(len(self.new_jobs))]
         self.job_num = len(self.jobs)
@@ -37,11 +39,10 @@ class PPO_ENV:
         self.new_num = len(self.new_jobs)
         self.sa_state_dim = args.sa_state_dim + args.objective
         self.ra_state_dim = args.ra_state_dim + args.objective
-        self.sys_state_dim = 8
+        self.sys_state_dim = 6
         self.w_dim = 3
         self.sa_action_space = 5
         self.ra_action_space = 4
-        self.t = t
         self.new_job_cnt = 0
         self.last_tardiness = 0  # 上一轮的平均加权延迟时间
         self.last_use_ratio = 0  # 上一轮机器利用率
@@ -50,9 +51,6 @@ class PPO_ENV:
         self.last_est_tardiness = 0
         self.sum_pt = 0
         self.sum_ect = 0
-        self.discount1 = 0.9
-        self.discount2 = 0.9
-        self.d_flag = False
         self.state1 = np.zeros(self.sys_state_dim).tolist()  # state1 为sa的上一状态
         self.state2 = np.zeros(self.sys_state_dim).tolist()  # state2 为ra的上一状态
         self.w1 = np.zeros(args.objective)
@@ -60,82 +58,41 @@ class PPO_ENV:
         self.color = np.array(color).reshape(-1, 3).tolist()
         self.routed_flag = np.zeros(len(self.jobs)).astype(bool)
         self.finished_flag = np.zeros(len(self.jobs)).astype(bool)
+        self.cnt = np.zeros((4, 3))
 
-    def sys_state(self, mach_index=None):
-        mach_ur = np.zeros(self.mch_num)
-        ects = np.zeros(self.mch_num)
+    def sys_state(self):
         ava_t = np.zeros(self.mch_num)
+        ect = np.zeros(self.mch_num)
         for i in range(self.mch_num):
-            if i == mach_index and mach_index is not None:
-                mach_ur[i] = self.machines[i].cal_use_ratio()
-                self.machines[i].ur_update(mach_ur[i])
-                ects[i] = self.machines[i].cal_total_ect()
-                self.machines[i].total_ect_update(ects[i])
-            else:
-                mach_ur[i] = self.machines[i].last_ur
-                ects[i] = self.machines[i].total_ect
             ava_t[i] = self.machines[i].ava_t
-        mean_ur = mach_ur.mean()
-        std_ur = mach_ur.std()
-        mean_ect = ects.mean()
-        std_ect = ects.std()
-        # mean_ect = ects.mean()
-        # std_ect = ects.std()
-        tcur = ava_t.mean()
-        cro = np.zeros(len(self.jobs))
-        td = np.zeros(len(self.jobs))
-        for i in range(len(cro)):
-            cro[i] = self.jobs[i].get_finish_rate()
-            td[i] = self.jobs[i].get_tardiness(tcur)
-        cro_mean = cro.mean()
-        cro_std = cro.std()
+            ect[i] = self.machines[i].cal_total_ect()
+        cmax = ava_t.max()
+        cmean = ava_t.mean()
+        ect_mean = ect.mean()
+        ect_std = ect.std()
+
+        td = np.zeros(self.job_num)
+        for j in range(self.job_num):
+            td[j] = self.jobs[j].get_tardiness(cmean)
+
         td_mean = td.mean()
-        td_sum = td.sum()
-        # td_mean = td.mean()
-        # td_sum = td.sum()
-        state = [mean_ur, std_ur, mean_ect, std_ect, cro_mean, cro_std, td_mean, td_sum]
+        td_std = td.std()
+
+        state = [cmax, cmean, td_mean, td_std, ect_mean, ect_std]
         return state
 
     def get_sa_state(self, mach_index):
-        state = self.sys_state(mach_index)
-        # diff = (np.array(state) - self.state1).tolist()
-        # self.state_update(state, mode=1)
-        # 机器编号,机器队列工件数目,可用时间,预估可用时间,机器利用率,机器累计能耗,机器延迟时间
-        id = float(mach_index)
-        num = self.machines[mach_index].get_queue_job_num()
-        ava_t = self.machines[mach_index].ava_t
-        est_ava_t = self.machines[mach_index].get_estimate_ava_time()
-        use_ratio = self.machines[mach_index].cal_use_ratio()
-        ect = self.machines[mach_index].cal_total_ect()
-        ids = self.machines[mach_index].get_queue_job_index()
-        td = 0
-        for job_index in ids:
-            td += self.jobs[job_index].get_tardiness(ava_t)
-        mach_state = [id, num, ava_t, est_ava_t, use_ratio, ect, td]
-        sa_state = state + mach_state + self.w1
-        # sa_state = state + diff + self.w1
+        state = self.sys_state()
+        diff = (np.array(state) - self.state1).tolist()
+        self.state_update(state, mode=1)
+        sa_state = state + diff + self.w1
         return sa_state
 
     def get_ra_state(self, job_index):
         state = self.sys_state()
         diff = (np.array(state) - self.state2).tolist()
         self.state_update(state, mode=2)
-        # 工件编号,工件完成率,工件开始时间,延迟时间,剩余时间,当前工序加工时间,工序能耗
-        id = float(job_index)
-        cr = self.jobs[job_index].get_finish_rate()
-        start = self.jobs[job_index].pre_start
-        ava_t = np.zeros(len(self.machines))
-        for i in range(len(self.machines)):
-            m = self.machines[i]
-            ava_t[i] = m.ava_t
-        tcur = ava_t.mean()
-        td = self.jobs[job_index].get_tardiness(tcur)
-        remain = self.jobs[job_index].get_remain_pt()
-        pt = self.jobs[job_index].pre_op.ave_pt
-        ect = self.jobs[job_index].pre_op.ave_ect
-        jstate = [id, cr, start, td, remain, pt, ect]
-        ra_state = state + jstate + self.w2
-        # ra_state = state + diff + self.w2
+        ra_state = state + diff + self.w2
         return ra_state
 
     def cal_schedule_time(self, ra):
@@ -163,19 +120,14 @@ class PPO_ENV:
         return choose, t
 
     def ra_done(self, t):
-        if self.t <= t:  # 达到预设停止时间
-            # print('time terminal')
-            return True
-        elif self.new_job_cnt == self.new_num and self.routed_flag.sum() == len(self.routed_flag):  # 所有工件都已分配
+        if self.new_job_cnt == self.new_num and self.routed_flag.sum() == len(self.routed_flag):  # 所有工件都已分配
             # print('no job will arrive')
             return True
         else:
             return False
 
     def sa_done(self, t):
-        if self.t <= t:  # 达到预设停止时间
-            return True
-        elif self.new_job_cnt == self.new_num and self.finished_flag.sum() == len(self.finished_flag):  # 所有工件都已完成加工
+        if self.new_job_cnt == self.new_num and self.finished_flag.sum() == len(self.finished_flag):  # 所有工件都已完成加工
             return True
         else:
             return False
@@ -204,56 +156,38 @@ class PPO_ENV:
             r1 = -1
         self.last_use_ratio = mean_ur
 
-        tcur = ava_t.mean()
-        tardiness = np.zeros(len(self.jobs))
-        for j in range(len(self.jobs)):
-            if self.finished_flag[j] is True:
-                continue
-            tardiness[j] = self.jobs[j].get_tardiness(tcur)
-        mean_tardiness = tardiness.mean()
-        if mean_tardiness < self.last_tardiness:
-            r2 = 1
-        elif mean_tardiness == self.last_tardiness:
-            r2 = 0
-        else:
-            r2 = -1
-        self.last_tardiness = mean_tardiness
+        r2 = self.machines[mach_index].tard_reward
 
         r3 = 0
         reward = np.dot(np.array([r1, r2, r3]), np.array(self.w1))
         return reward
 
     def ra_reward(self, mach_index, op):
-        estimate_use_ratio = np.zeros(self.mch_num)
-        estimate_ava_t = np.zeros(self.mch_num)
-        estimate_tardiness = np.zeros(len(self.jobs))
-
-        for i in range(self.mch_num):
-            m = self.machines[i]
-            estimate_use_ratio[i] = m.get_estimate_use_ratio()
-            estimate_ava_t[i] = m.get_estimate_ava_time()
-
-        est_cur = estimate_ava_t.mean()
-
-        for j in range(len(self.jobs)):
-            if self.finished_flag[j] is True:
-                continue
-            estimate_tardiness[j] = self.jobs[j].get_tardiness(est_cur, True)
-
-        mean_est_ur = estimate_use_ratio.mean()
         r1 = 0
 
-        self.last_est_ur = mean_est_ur
+        ava_mach_index = op.ava_mach_number
+        estimate_slack = np.zeros(len(ava_mach_index))
+        ects = np.zeros(len(ava_mach_index))
+        for i, index in enumerate(ava_mach_index):
+            est_ava_t = self.machines[index].get_estimate_ava_time()
+            if index != mach_index:
+                start = self.jobs[op.job_index].pre_start
+                end = max(est_ava_t, start) + op.get_pt(index)
+                estimate_slack[i] = self.jobs[op.job_index].get_slack_time(end, flag=True)
+            else:
+                estimate_slack[i] = self.jobs[op.job_index].get_slack_time(est_ava_t, flag=True)
+            ects[i] = op.get_ect(index)
 
-        mean_est_tardiness = estimate_tardiness.mean()
-        if mean_est_tardiness < self.last_est_tardiness:
+        s = estimate_slack[np.where(np.array(ava_mach_index) == mach_index)[0][0]]
+        ect = ects[np.where(np.array(ava_mach_index) == mach_index)[0][0]]
+        mean_s = estimate_slack.mean()
+        mean_ect = ects.mean()
+        if s > mean_s:
             r2 = 1
-        elif mean_est_tardiness == self.last_est_tardiness:
+        elif s == mean_s:
             r2 = 0
         else:
             r2 = -1
-
-        self.last_est_tardiness = mean_est_tardiness
 
         self.sum_ect += op.get_pt(mach_index)
         self.sum_pt += op.get_ect(mach_index)
@@ -265,13 +199,21 @@ class PPO_ENV:
         else:
             r3 = -1
         self.last_ep_ratio = ep_ratio
+        # if ect > mean_ect:
+        #     r3 = 1
+        # elif ect == mean_ect:
+        #     r3 = 0
+        # else:
+        #     r3 = -1
         reward = np.dot(np.array([r1, r2, r3]), np.array(self.w2))
         return reward
 
     def sa_step(self, mach_index, sa_action, t):
         job_index = self.sequence_rule(mach_index, sa_action, t)
+        queue_index = self.machines[mach_index].get_queue_job_index()
         # 从buffer选择job_index的工件进行加工
         op, start, end = self.machines[mach_index].sa_step(job_index)
+        self.cal_tard_reward(queue_index, job_index, mach_index, start)
         op.sa_step(start, end)
         self.jobs[job_index].sa_step(start, end)
 
@@ -311,20 +253,7 @@ class PPO_ENV:
             sa_state = np.zeros(self.sa_state_dim) + 1e-4
             mach_index = None
             t = None
-        self._discount_update()
         return sa_state, mach_index, t
-
-    def _discount_update(self, gamma=5e-4, beta=7e-4):
-        self.discount1 += gamma
-        if self.d_flag:
-            self.discount2 += 6e-5
-        else:
-            self.discount2 += beta
-        if self.discount1 >= 1:
-            self.discount1 = 0.99
-        if self.discount2 >= 1:
-            self.d_flag = True
-            self.discount2 = 0.99
 
     def sequence_rule(self, mach_index, action, t):
         if mach_index is None:
@@ -410,17 +339,38 @@ class PPO_ENV:
         use_ratio = []
         ect = 0
         tardiness = 0
+        cmax = 0
         for i in range(self.mch_num):
             m = self.machines[i]
+            cmax = max(cmax, m.op_end[-1])
             use_ratio.append(m.cal_use_ratio())
             ect += m.cal_total_ect()
         for j in range(len(self.jobs)):
-            tardiness += self.jobs[j].get_tardiness(self.t)
+            tardiness += self.jobs[j].get_tardiness(self.jobs[j].ops_end[-1])
         mean_use_ratio = np.array(use_ratio).mean()
-        return [mean_use_ratio, tardiness, ect]
+        return [cmax, tardiness, ect]
 
-    def render(self, t=0.5):
-        plt.title('Gantt chart of scheduling')
+    def cal_tard_reward(self, queue_job_index, job_index, mach_index, t):
+        slack_or_tard = np.zeros(len(queue_job_index))
+        # print("queue job num = ", len(queue_job_index))
+        for i in range(slack_or_tard.shape[0]):
+            slack = self.jobs[queue_job_index[i]].get_slack_time(t)
+            if slack < 0:
+                slack = slack * self.jobs[queue_job_index[i]].u_degree
+            slack_or_tard[i] = slack
+        index = np.where(np.array(queue_job_index) == job_index)[0][0]
+        s = slack_or_tard[index]
+        mean = slack_or_tard.mean()
+        if s < mean:
+            r = 1
+        elif s == mean:
+            r = 0
+        else:
+            r = -1
+        self.machines[mach_index].tard_reward = r
+
+    def render(self, t=0.5, key=None):
+        plt.title(f'{key} 甘特图')
         plt.yticks(np.arange(len(self.machines) + 1))
         for i in range(len(self.machines)):
             m = self.machines[i]
@@ -437,7 +387,7 @@ class PPO_ENV:
                 rep_t = m.rep_t[j]
                 plt.barh(i + 0.5, rep_t, height=1, left=start, align='center', color='black', edgecolor='grey')
                 # plt.text(start + rep_t / 8, i, 'B{}-R{}'.machine_format(j + 1, rep_t), fontsize=10, color='tan')
-        plt.xlabel('time')
-        plt.ylabel('machine')
+        plt.xlabel('时间')
+        plt.ylabel('加工机器')
         plt.pause(t)
         plt.close()

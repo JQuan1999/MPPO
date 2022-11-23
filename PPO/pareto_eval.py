@@ -3,6 +3,7 @@ import os
 import argparse
 import time
 import numpy as np
+import torch
 
 from env import PPO_ENV
 from agent import Sequence_Agent, Route_Agent
@@ -10,19 +11,21 @@ from utils.uniform_weight import cweight
 from utils.config import config
 from utils.utils import get_data, save_result, get_ckpt
 
+np.random.seed(1)
+
 
 def eval_():
+    np.random.seed(1)
     args = config()
-    args.test_data = './data/test'
-    instance = ['/'.join([args.test_data, insdir]) for insdir in os.listdir(args.test_data)]
-    test_datas = []
-    for ins in instance:
-        test_datas.append('/'.join([ins, 't0.json']))
+    args.test_data = './data/test4'
+    test_datas = ['/'.join([args.test_data, insdir, 't0.json']) for insdir in os.listdir(args.test_data)][2:]
 
-    args.sa_ckpt = './param/pareto_weight/10-10-00-27/sa'
-    args.ra_ckpt = './param/pareto_weight/10-10-00-27/ra'
-    args.weight_path = './param/pareto_weight/10-10-00-27/weight.npy'
-    result_dir = './log/eval/multi-agent.json'
+    args.sa_ckpt = './param/pareto_weight/11-02-16-11/sa'
+    args.ra_ckpt = './param/pareto_weight/11-02-16-11/ra'
+    args.weight_path = './param/pareto_weight/11-02-16-11/weight.npy'
+    prefix = time.strftime('%m-%d-%H-%M')
+    name = prefix + "-multi-agent.json"
+    result_dir = './log/eval/' + name
     print(args)
 
     # test_data = get_data(args.test_data)[0]
@@ -35,6 +38,8 @@ def eval_():
     result = {}
     for index, data in enumerate(test_datas):
         objs = np.zeros((weight.shape[0], args.objective))
+        data_name = data.split('/')[-2]
+        begin = time.time()
         for i in range(weight.shape[0]):
             sa.load(sa_ckpt[i])
             ra.load(ra_ckpt[i])
@@ -51,13 +56,13 @@ def eval_():
                     env.njob_route(job_index, t, ra)
 
                 sa_action = sa.choose_action(sa_state)
-                a1.append(sa_action)
+                # a1.append(sa_action)
                 job_index, sa_reward, done1, end = env.sa_step(mach_index1, sa_action, t)
 
                 if not done2 and env.jobs[job_index].not_finish():
                     ra_state = env.get_ra_state(job_index)
                     ra_action = ra.choose_action(ra_state)
-                    a2.append(ra_action)
+                    # a2.append(ra_action)
                     ra_reward, done2 = env.ra_step(job_index, ra_action, t)
 
                 # env.render()
@@ -65,12 +70,16 @@ def eval_():
                 sa_state = sa_state_
                 if done1:
                     break
-            # env.render(t=100)
+            env.render(t=100, key=data_name)
             obj = env.cal_objective()
             objs[i] = obj
-            print(f'data {instance[index]} weight {weight[i].reshape(-1, ).tolist()} | obj1 = {obj[0]}, obj2 = {obj[1]}, obj2 = {obj[2]}')
+            print(f'data {data_name} weight {weight[i].reshape(-1, ).tolist()} | obj1 = {obj[0]}, obj2 = {obj[1]}, obj2 = {obj[2]}')
             # print(f'a1 = {a1}\n a2 = {a2}')
-        result[instance[index]] = objs.tolist()
+        t = time.time() - begin
+        print(f'----------time = {t}------------')
+        result[data_name] = {}
+        result[data_name]["time"] = t
+        result[data_name]["result"] = objs.tolist()
     save_result(result, result_dir)
     print('end')
 

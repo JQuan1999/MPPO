@@ -33,7 +33,7 @@ class Op:
     def get_pt(self, mach_index):
         index = np.where(np.array(self.ava_mach_number) == mach_index)[0]
         if len(index) == 0:
-            raise Exception("mach_index {} is not in ava_mach_number" % mach_index)
+            raise Exception("mach_index {} is not in ava_mach_number {}".format(mach_index, self.ava_mach_number))
         return self.pt[index[0]]
 
     def get_ect(self, mach_index):
@@ -105,11 +105,13 @@ class Job:
             return 0
 
     def get_slack_time(self, t, flag=False):
+        # flag 为true表示当前工序已在队列中, 计算预估松弛时间
         left_pt = self.get_remain_pt(flag)
         slack = self.due_date - t - left_pt
         return slack
 
     def get_remain_pt(self, flag=False):
+        # flag 为true表示当前工序已在队列中, 计算预估剩余时间
         if flag is True and self.ops_dispatch_no == self.pre_no + 1:
             left_pt = 0
         else:
@@ -168,6 +170,7 @@ class Machine:
         self.idle_cost = 0.2
         self.total_ect = 0
         self.est_ep_ratio = 0
+        self.tard_reward = 0
 
     def _swap(self, index1, index2, l):
         temp = l[index1]
@@ -325,20 +328,23 @@ class Machine:
             return total_ect / end
 
     def get_break(self):
-        cnt = self.break_cnt
+        if self.break_cnt < len(self.break_t):
+            cnt = self.break_cnt
+        else:
+            cnt = len(self.break_t) - 1
         break_point = self.break_t[cnt]
         rep_t = self.rep_t[cnt]
         return break_point, rep_t
 
     def cal_total_ect(self):
         work_ect = np.array(self.ects).sum()
-        idle_time = 0
-        for i in range(len(self.op_end)-1):
-            idle_time += self.op_end[i] - self.op_start[i]
-        idle_ect = idle_time * self.idle_cost
-        ect = work_ect + idle_ect
+        # idle_time = 0
+        # for i in range(len(self.op_end)-1):
+        #     idle_time += self.op_end[i] - self.op_start[i]
+        # idle_ect = idle_time * self.idle_cost
+        # ect = work_ect + idle_ect
         # print(f'word_ect{work_ect}, idle_ect{idle_ect}')
-        return ect
+        return work_ect
 
     def get_state(self):
         queue_job_pt = np.zeros(len(self.buffer_op))
