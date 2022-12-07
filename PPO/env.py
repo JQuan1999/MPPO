@@ -387,6 +387,7 @@ class PPO_ENV:
                 rep_t = m.rep_t[j]
                 plt.barh(i + 0.5, rep_t, height=1, left=start, align='center', color='black', edgecolor='grey')
                 # plt.text(start + rep_t / 8, i, 'B{}-R{}'.machine_format(j + 1, rep_t), fontsize=10, color='tan')
+        plt.ticklabel_format(axis='both', style='sci', scilimits=[-1, 2])
         plt.xlabel('时间')
         plt.ylabel('加工机器')
         plt.pause(t)

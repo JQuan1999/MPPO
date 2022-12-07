@@ -189,7 +189,7 @@ def show_pareto():
             new_name.append("R-"+algo)
     print(new_name)
 
-    fig, axes = plt.subplots(1, 2, figsize=(8, 8), subplot_kw={'projection': '3d'})
+    fig, axes = plt.subplots(1, 2, figsize=(10, 8), subplot_kw={'projection': '3d'})
     axes = axes.reshape(-1, )
     mark = ['o', 'v', '^', 's', 'p', 'x', 'd', 'X', '*', '+']
     c = color
@@ -200,13 +200,14 @@ def show_pareto():
                 r = json.load(f)
                 obj = np.array(r[key]["result"])
             obj = get_ps(obj)
-            axes[index].scatter3D(obj[:, 0], obj[:, 1], obj[:, 2], s=12, c=c[i].reshape(1, -1), marker=mark[i], label=new_name[i])
-            axes[index].legend(fontsize=8, ncol=3)
+            axes[index].scatter3D(obj[:, 0], obj[:, 1], obj[:, 2], c=c[i].reshape(1, -1), marker=mark[i], label=new_name[i], s=10)
+            axes[index].legend(fontsize=10, ncol=3)
             axes[index].tick_params(labelsize=8)
-            axes[index].set_xlabel('完工时间', fontsize=8)
-            axes[index].set_ylabel('延迟时间', fontsize=8)
-            axes[index].set_zlabel('能耗', fontsize=8)
+            axes[index].set_xlabel('完工时间', fontsize=10)
+            axes[index].set_ylabel('延迟时间', fontsize=10)
+            axes[index].set_zlabel('能耗', fontsize=10)
             axes[index].set_title(key, fontsize=10)
+        axes[index].ticklabel_format(axis='both', style='sci', scilimits=[-1, 2])
     plt.show()
 
 

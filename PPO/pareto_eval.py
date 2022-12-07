@@ -70,7 +70,7 @@ def eval_():
                 sa_state = sa_state_
                 if done1:
                     break
-            env.render(t=100, key=data_name)
+            # env.render(t=5, key=data_name)
             obj = env.cal_objective()
             objs[i] = obj
             print(f'data {data_name} weight {weight[i].reshape(-1, ).tolist()} | obj1 = {obj[0]}, obj2 = {obj[1]}, obj2 = {obj[2]}')

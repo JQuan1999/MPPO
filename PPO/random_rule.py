@@ -52,7 +52,7 @@ def _random_eval(sa_action, ra_action, args, result_file):
                 ac = get_comb_action()
                 env.sequence_action = ac[0]
                 env.route_action = ac[1]
-            env.render(t=100, key=data_name)
+            # env.render(t=10, key=data_name)
             obj = env.cal_objective()
             objs[i] = obj
             print(f'data {data_name} | obj1 = {obj[0]}, obj2 = {obj[1]}, obj3 = {obj[2]}')
