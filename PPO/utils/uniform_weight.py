@@ -67,7 +67,8 @@ if __name__ == "__main__":
     from mpl_toolkits.mplot3d import axes3d
     fig = plt.figure(1)
     ax = fig.gca(projection='3d')
-    weight, size = init_weight(36, 3)
+    # 110个权重向量,剔除不满足约束向量的大小为36
+    weight, size = init_weight(110, 3, 0.1)
     print(size)
     for i in range(size):
         w = weight[i]

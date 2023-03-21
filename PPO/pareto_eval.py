@@ -14,21 +14,49 @@ from utils.utils import get_data, save_result, get_ckpt
 np.random.seed(1)
 
 
-def eval_():
-    np.random.seed(1)
+def param_experiment_eval():
     args = config()
-    args.test_data = './data/test4'
-    test_datas = ['/'.join([args.test_data, insdir, 't0.json']) for insdir in os.listdir(args.test_data)][2:]
+    Epoch_Bacth_Step = [[5, 64, 5],
+                        [5, 128, 10],
+                        [5, 256, 15],
+                        [10, 64, 10],
+                        [10, 128, 15],
+                        [10, 256, 5],
+                        [15, 64, 15],
+                        [15, 128, 5],
+                        [15, 256, 10]]
+    ckpt_path = "./param/param_experiment/ckpt"
+    args.test_data = "./data/test4/j40_m20_n60"
+    # 保存评估结果的文件夹
+    logdir = "./log/param_experiment"
+    if not os.path.exists(logdir):
+        os.makedirs(logdir)
 
-    args.sa_ckpt = './param/pareto_weight/11-02-16-11/sa'
-    args.ra_ckpt = './param/pareto_weight/11-02-16-11/ra'
-    args.weight_path = './param/pareto_weight/11-02-16-11/weight.npy'
-    prefix = time.strftime('%m-%d-%H-%M')
-    name = prefix + "-multi-agent.json"
-    result_dir = './log/eval/' + name
+    for param in Epoch_Bacth_Step:
+        # 设置参数路径
+        name = "E{}_B{}_S{}".format(param[0], param[1], param[2])
+        dirname = "/".join([ckpt_path, name])
+        args.sa_ckpt = dirname + "/" + "sa"
+        args.ra_ckpt = dirname + "/" + "sa"
+        # 保存评估结果的文件路径
+        args.log_dir = logdir + "/" + name
+        # 参考向量文件
+        args.weight_path = dirname + "/" + "weight.npy"
+        eval_(args)
+
+    print('eval end!!!')
+
+
+def eval_(args):
     print(args)
+    # 获取最后一个文件名,根据最后一个文件名判断是对所有规模的调度问题进行对比还是只对比单个
+    last_dir = args.test_data.split('/')[-1]
+    if last_dir[:4] == "test":
+        test_datas = ['/'.join([args.test_data, insdir, 't0.json']) for insdir in os.listdir(args.test_data)]
+    else:
+        test_datas = ['/'.join([args.test_data, 't0.json'])]
 
-    # test_data = get_data(args.test_data)[0]
+    # 加载参考向量和每个参考向量对应的sa和ra的ckpt文件
     weight = np.load(args.weight_path)
     sa = Sequence_Agent(args)
     ra = Route_Agent(args)
@@ -70,7 +98,7 @@ def eval_():
                 sa_state = sa_state_
                 if done1:
                     break
-            # env.render(t=5, key=data_name)
+            env.render(t=100, key=data_name)
             obj = env.cal_objective()
             objs[i] = obj
             print(f'data {data_name} weight {weight[i].reshape(-1, ).tolist()} | obj1 = {obj[0]}, obj2 = {obj[1]}, obj2 = {obj[2]}')
@@ -80,9 +108,18 @@ def eval_():
         result[data_name] = {}
         result[data_name]["time"] = t
         result[data_name]["result"] = objs.tolist()
-    save_result(result, result_dir)
+    save_result(result, args.log_dir)
     print('end')
 
 
 if __name__ == '__main__':
-    eval_()
+    args = config()
+    args.test_data = './data/test4/j7_m5_n10'
+    args.sa_ckpt = './param/pareto_weight/11-02-16-11/sa'
+    args.ra_ckpt = './param/pareto_weight/11-02-16-11/ra'
+    args.weight_path = './param/pareto_weight/11-02-16-11/weight.npy'
+    prefix = time.strftime('%m-%d-%H-%M')
+    name = prefix + "-multi-agent.json"
+    args.log_dir = args.log_dir + name
+    eval_(args)
+    # param_experiment_eval()

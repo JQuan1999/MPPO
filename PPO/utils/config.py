@@ -18,6 +18,7 @@ def config():
     parser.add_argument('--ra_action_space', type=int, default=4, help='route agent action space')
 
     parser.add_argument('--log_dir', type=str, default='./log/eval/', help='eval result saved path')
+    parser.add_argument('--metric_result_dir', type=str, default='./log/pareto', help='pareto metric result saved path')
     parser.add_argument('--train_data', type=str, default='./data/train')
     parser.add_argument('--test_data', type=str, default='./data/test')
     parser.add_argument('--sa_ckpt_path', type=str, default='./param/pareto_weight', help='path to save sa ckpt')

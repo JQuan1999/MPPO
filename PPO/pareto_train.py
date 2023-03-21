@@ -9,16 +9,59 @@ from utils.uniform_weight import init_weight, cweight
 from utils.utils import get_data, get_weight
 
 
-def train():
+# 9种参数组合对比试验
+# id  Epoch   BatchSize   Step
+# 1    1(5)    1(64)      1(5)
+# 2    1(5)    2(128)     2(10)
+# 3    1(5)    3(256)     3(15)
+# 4    2(10)   1(64)      2(10)
+# 5    2(10)   2(128)     3(15)
+# 6    2(10)   3(256)     1(5)
+# 7    3(15)   1(64)      3(15)
+# 8    3(15)   2(128)     1(5)
+# 9    3(15)   3(256)     2(10)
+
+def param_experiment_train():
     args = config()
-    print(args)
+    Epoch_Bacth_Step = [
+        [5, 64, 5],
+        [5, 128, 10],
+        [5, 256, 15],
+        [10, 64, 10],
+        [10, 128, 15],
+        [10, 256, 5],
+        [15, 64, 15],
+        [15, 128, 5],
+        [15, 256, 10]]
+    ckpt_path = "./param/param_experiment/ckpt"
+    if not os.path.exists(ckpt_path):
+        os.makedirs(ckpt_path)
+
+    args.sa_ckpt_path = ckpt_path
+    args.ra_ckpt_path = ckpt_path
+    for param_comb in Epoch_Bacth_Step:
+        args.epochs = param_comb[0]
+        args.batch_size = param_comb[1]
+        args.a_update_step = param_comb[2]
+        args.c_update_step = param_comb[2]
+        name = "E{}_B{}_S{}".format(args.epochs, args.batch_size, param_comb[0])
+        dirname = '/'.join([ckpt_path, name])
+        if os.path.exists(dirname):
+            os.removedirs(dirname)
+        args.sa_ckpt_path = '/'.join([dirname, "sa"])
+        args.ra_ckpt_path = '/'.join([dirname, "ra"])
+        train(args)
+    print('train end')
+
+
+def train(args):
     args.train_data = "./data/train2/j30_m20_n40"
     train_data = get_data(args.train_data)
     train_data_size = len(train_data)
 
-    date = time.strftime('%m-%d-%H-%M')
-    args.sa_ckpt_path = '/'.join([args.sa_ckpt_path, date, 'sa'])
-    args.ra_ckpt_path = '/'.join([args.ra_ckpt_path, date, 'ra'])
+    # date = time.strftime('%m-%d-%H-%M')
+    # args.sa_ckpt_path = '/'.join([args.sa_ckpt_path, date, 'sa'])
+    # args.ra_ckpt_path = '/'.join([args.ra_ckpt_path, date, 'ra'])
     weight, size = get_weight(args)
     sa = Sequence_Agent(args)
     ra = Route_Agent(args)
@@ -82,4 +125,4 @@ def train():
 
 
 if __name__ == "__main__":
-    train()
+    param_experiment_train()

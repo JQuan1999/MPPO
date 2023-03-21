@@ -4,12 +4,60 @@ import numpy as np
 import copy
 import os
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import axes3d
 
+from utils.config import config
+from mpl_toolkits.mplot3d import axes3d
 from utils.utils import save_result
 from env import color
 
 plt.rcParams['font.sans-serif']=['SimHei'] #显示中文
+
+
+def param_experiment_metric():
+    args = config()
+    args.test_data = "./data/test4/j40_m20_n60"
+    args.log_dir = "./log/param_experiment"
+    metric(args)
+
+
+def param_metric_anaylize():
+    args = config()
+
+    args.metric_result_dir += "/02-21-16-25.json"
+    with open(args.metric_result_dir, 'r') as f:
+        result = json.load(f)
+    test_data = "j40_m20_n60"
+    metric_v = []
+    for key in result:
+        metric_v.append(result[key][test_data]["metric"])
+    metric_v = np.array(metric_v)
+
+    max_v = metric_v.max(axis=0).reshape(1, -1)
+    min_v = metric_v.min(axis=0).reshape(1, -1)
+
+    norm_v = (metric_v - min_v) / (max_v - min_v)
+    ave_v = np.sum(norm_v, axis=1) / 3
+    print(ave_v)
+
+
+def show_trend():
+    values = [[0.53637, 0.28400, 0.26718], [0.51174, 0.25214, 0.32366], [0.44566, 0.27612, 0.36577]]
+    ticks = [[5, 10, 15], [64, 128, 256], [5, 10, 15]]
+    fig, axes = plt.subplots(1, 3, sharey=True)
+    axes[0].set_ylabel("Fmean")
+    axes[0].plot(ticks[0], values[0])
+    axes[0].set_xticks(ticks[0])
+    axes[0].set_title("Epoch")
+
+    axes[1].plot(ticks[1], values[1])
+    axes[1].set_xticks(ticks[1])
+    axes[1].set_title("Batchsize")
+
+    axes[2].plot(ticks[2], values[2])
+    axes[2].set_xticks(ticks[2])
+    axes[2].set_title("Step")
+
+    plt.show()
 
 
 def get_ps(P):
@@ -76,22 +124,32 @@ def spread(A, P):
     return deta
 
 
-def metric():
-    test_data = './data/test4'
-    keys = os.listdir(test_data)
-    log_dir = 'log/compared_agent'
+def metric(args):
+    # 获取最后一个文件名,根据最后一个文件名判断是对所有规模的调度问题进行对比还是只对比单个
+    last_dir = args.test_data.split('/')[-1]
+    if last_dir[:4] == "test":
+        keys = os.listdir(args.test_data)
+    else:
+        keys = [last_dir]
+    # 获取对比实验数据
+    log_dir = args.log_dir
     files = os.listdir(log_dir)
     log_list = ['/'.join([log_dir, file]) for file in files]
-    algo_name = [file.split('-')[-1].split('.')[0] for file in files]
 
+    # 对比算法的名称
+    # algo_name = [file.split('-')[-1].split('.')[0] for file in files]
+    algo_name = files
+
+    # 保存评价指标结果
     result = {}
-    result_path = './log/pareto'
     for name in algo_name:
         result[name] = {}
 
+    # key为测试问题规模大小:m=j10_m10_n30邓
     for key in keys:
         objs = []
         times = []
+        # log_list记录了所有要对比的实验结果, log记录一条实验结果
         for log in log_list:
             with open(log, 'r') as f:
                 r = json.load(f)
@@ -101,15 +159,18 @@ def metric():
         P = np.concatenate([obj for obj in objs], axis=0)
         v_max = P.max(axis=0)
         v_min = P.min(axis=0)
+        # 归一化
         P = ((P - np.tile(v_min, (P.shape[0], 1))) / (
                 np.tile(v_max, (P.shape[0], 1)) - np.tile(v_min, (P.shape[0], 1))))
         norm_objs = []
         begin = 0
+        # norm_objs记录归一化后的目标函数值
         for obj in objs:
             norm_objs.append(P[begin:(begin + obj.shape[0])])
             begin = begin + obj.shape[0]
         P = get_ps(P)
 
+        # 计算评价指标
         for i, norm_obj in enumerate(norm_objs):
             gd = GD(norm_obj, P)
             igd = IGD(P, norm_obj)
@@ -119,15 +180,9 @@ def metric():
             result[algo][key] = {}
             result[algo][key]["metric"] = [gd, igd, spr]
             result[algo][key]["time"] = t
-            if algo == "agent":
-                t = t / 2
-            elif algo == "nsga2":
-                t = t * 6
-            else:
-                t = t * 5
             print(f'key = {key}, algorithm = {algo} metric value = {gd, igd, spr} time = {t}')
         print('--------------------------------------')
-    # save_result(result, result_path)
+    save_result(result, args.metric_result_dir)
     print('end')
 
 
@@ -170,7 +225,7 @@ def print_metric():
 
 def show_pareto():
     test_data = './data/test4'
-    keys = os.listdir(test_data)[4:6]
+    keys = os.listdir(test_data)[5:7]
     # key = "j30_m20_n40"
     log_dir = 'log/compared_rule'
     files = os.listdir(log_dir)
@@ -212,4 +267,4 @@ def show_pareto():
 
 
 if __name__ == "__main__":
-    show_pareto()
+    show_trend()

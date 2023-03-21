@@ -370,7 +370,7 @@ class PPO_ENV:
         self.machines[mach_index].tard_reward = r
 
     def render(self, t=0.5, key=None):
-        plt.title(f'{key} 甘特图')
+        # plt.title(f'{key} 甘特图')
         plt.yticks(np.arange(len(self.machines) + 1))
         for i in range(len(self.machines)):
             m = self.machines[i]
@@ -381,12 +381,14 @@ class PPO_ENV:
                 start, end = op.start, op.end
                 pt = end - start
                 plt.barh(i + 0.5, pt, height=1, left=start, align='center', color=self.color[c_index], edgecolor='grey')
-                # plt.text(start + pt / 8, i, 'J{}-OP{}\n{}'.machine_format(job_index + 1, op_index + 1, pt), fontsize=10,color='tan')
+                # plt.text(start + pt / 8, i, 'J{}-OP{}\n{}'.format(job_index + 1, op_index + 1, pt), fontsize=10,color='tan')
+                plt.text(start + pt / 8, i + 0.5, '{}'.format(job_index + 1), fontsize=10,
+                         color='tan')
             for j in range(m.break_cnt):
                 start = m.break_t[j]
                 rep_t = m.rep_t[j]
                 plt.barh(i + 0.5, rep_t, height=1, left=start, align='center', color='black', edgecolor='grey')
-                # plt.text(start + rep_t / 8, i, 'B{}-R{}'.machine_format(j + 1, rep_t), fontsize=10, color='tan')
+                # plt.text(start + rep_t / 8, i + 0.5, 'B{}-R{}'.format(j + 1, rep_t), fontsize=10, color='tan')
         plt.ticklabel_format(axis='both', style='sci', scilimits=[-1, 2])
         plt.xlabel('时间')
         plt.ylabel('加工机器')
