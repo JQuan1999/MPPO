@@ -41,24 +41,14 @@ def init_weight(weight_size, objective, low_bound=0.0):
     return weight_vector, weight_size
 
 
-def cweight(weight, env, sa=None, ra=None, mode=0):
+def cweight(weight, env, sa, ra):
     if len(weight.shape) != 2:
         raise Exception(f'weight shape should be 2, but got {weight.shape}, weight = {weight}')
     wsize = weight.shape[0]
     w = weight[np.random.randint(low=0, high=wsize)]
-    if mode == 0:
-        env.w1 = w.tolist()
-        env.w2 = w.tolist()
-        sa.cweight(w)
-        ra.cweight(w)
-    elif mode == 1:
-        env.w1 = w.tolist()
-        sa.cweight(w)
-    elif mode == 2:
-        env.w2 = w.tolist()
-        ra.cweight(w)
-    else:
-        raise Exception(f'mode = {mode} is not in 0, 1, 2')
+    env.w = w.tolist()
+    sa.cweight(w)
+    ra.cweight(w)
     return w
 
 

@@ -41,8 +41,6 @@ class PPO_ENV:
         self.ra_state_dim = args.ra_state_dim + args.objective
         self.sys_state_dim = 6
         self.w_dim = 3
-        self.sa_action_space = 4
-        self.ra_action_space = 4
         self.new_job_cnt = 0
         self.last_tardiness = 0  # 上一轮的平均加权延迟时间
         self.last_use_ratio = 0  # 上一轮机器利用率
@@ -53,12 +51,10 @@ class PPO_ENV:
         self.sum_ect = 0
         self.state1 = np.zeros(self.sys_state_dim).tolist()  # state1 为sa的上一状态
         self.state2 = np.zeros(self.sys_state_dim).tolist()  # state2 为ra的上一状态
-        self.w1 = np.zeros(args.objective)
-        self.w2 = np.zeros(args.objective)
+        self.w = [0] * self.w_dim
         self.color = np.array(color).reshape(-1, 3).tolist()
         self.routed_flag = np.zeros(len(self.jobs)).astype(bool)
         self.finished_flag = np.zeros(len(self.jobs)).astype(bool)
-        self.cnt = np.zeros((4, 3))
 
     def sys_state(self):
         ava_t = np.zeros(self.mch_num)
@@ -85,14 +81,14 @@ class PPO_ENV:
         state = self.sys_state()
         diff = (np.array(state) - self.state1).tolist()
         self.state_update(state, mode=1)
-        sa_state = state + diff + self.w1
+        sa_state = state + diff + self.w
         return sa_state
 
     def get_ra_state(self, job_index):
         state = self.sys_state()
         diff = (np.array(state) - self.state2).tolist()
         self.state_update(state, mode=2)
-        ra_state = state + diff + self.w2
+        ra_state = state + diff + self.w
         return ra_state
 
     def cal_schedule_time(self, ra):
@@ -159,7 +155,7 @@ class PPO_ENV:
         r2 = self.machines[mach_index].tard_reward
 
         r3 = 0
-        reward = np.dot(np.array([r1, r2, r3]), np.array(self.w1))
+        reward = np.dot(np.array([r1, r2, r3]), np.array(self.w))
         return reward
 
     def ra_reward(self, mach_index, op):
@@ -205,7 +201,7 @@ class PPO_ENV:
         #     r3 = 0
         # else:
         #     r3 = -1
-        reward = np.dot(np.array([r1, r2, r3]), np.array(self.w2))
+        reward = np.dot(np.array([r1, r2, r3]), np.array(self.w))
         return reward
 
     def sa_step(self, mach_index, sa_action, t):

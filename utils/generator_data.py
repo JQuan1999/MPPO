@@ -106,6 +106,7 @@ def generator_job_info(data, args, job_key, job_format, arrival_t, flag=False):
 def generator_machine_info(data, args, machine_key, machine_format):
     for m in range(args.machine_num):
         # 机器故障时间服从指数分布 均值 = INTERVAL_FAILURE
+        # undo 生成的机器故障时间可能存在连续故障 -> 上一轮故障的修复时间未完成,下一轮故障就已经发生
         # 生成机器故障的时间节点
         fail_t = np.cumsum(np.round(np.random.exponential(args.interval_break, size=args.break_cnt))).tolist()
         # 机器故障的修复时间

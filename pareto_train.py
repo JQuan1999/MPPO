@@ -59,9 +59,9 @@ def train(args):
     train_data = get_data(args.train_data)
     train_data_size = len(train_data)
 
-    # date = time.strftime('%m-%d-%H-%M')
-    # args.sa_ckpt_path = '/'.join([args.sa_ckpt_path, date, 'sa'])
-    # args.ra_ckpt_path = '/'.join([args.ra_ckpt_path, date, 'ra'])
+    date = time.strftime('%m-%d-%H-%M')
+    args.sa_ckpt_path = '/'.join([args.sa_ckpt_path, date, 'sa'])
+    args.ra_ckpt_path = '/'.join([args.ra_ckpt_path, date, 'ra'])
     weight, size = get_weight(args)
     sa = Sequence_Agent(args)
     ra = Route_Agent(args)
@@ -103,7 +103,7 @@ def train(args):
 
                 if ra.buffer.cnt == args.batch_size:
                     ra.learn(ra_state, done2)
-                elif done1 and ra.buffer.cnt != 0:
+                elif done2 and ra.buffer.cnt != 0:
                     ra.learn(ra_state, done2)
 
                 sa_state = sa_state_
@@ -125,4 +125,5 @@ def train(args):
 
 
 if __name__ == "__main__":
-    param_experiment_train()
+    args = config()
+    train(args)

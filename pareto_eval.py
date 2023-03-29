@@ -39,7 +39,7 @@ def param_experiment_eval():
         args.sa_ckpt = dirname + "/" + "sa"
         args.ra_ckpt = dirname + "/" + "sa"
         # 保存评估结果的文件路径
-        args.log_dir = logdir + "/" + name
+        args.agent_eval = logdir + "/" + name
         # 参考向量文件
         args.weight_path = dirname + "/" + "weight.npy"
         eval_(args)
@@ -54,7 +54,7 @@ def eval_(args):
     if last_dir[:4] == "test":
         test_datas = ['/'.join([args.test_data, insdir, 't0.json']) for insdir in os.listdir(args.test_data)]
     else:
-        test_datas = ['/'.join([args.test_data, 't0.json'])]
+        test_datas = ['/'.join([args.test_data, 't2.json'])]
 
     # 加载参考向量和每个参考向量对应的sa和ra的ckpt文件
     weight = np.load(args.weight_path)
@@ -108,18 +108,21 @@ def eval_(args):
         result[data_name] = {}
         result[data_name]["time"] = t
         result[data_name]["result"] = objs.tolist()
-    # save_result(result, args.log_dir)
+    # save_result(result, args.agent_eval)
     print('end')
 
 
-if __name__ == '__main__':
+def agent_eval():
     args = config()
-    args.test_data = './data/test4/j15_m10_n20'
-    args.sa_ckpt = './param/pareto_weight/11-02-16-11/sa'
-    args.ra_ckpt = './param/pareto_weight/11-02-16-11/ra'
-    args.weight_path = './param/pareto_weight/11-02-16-11/weight.npy'
+    args.test_data = './data/test4/j7_m5_n10/'  # 测试集
+    args.sa_ckpt = './param/pareto_weight/03-25-18-43/sa'
+    args.ra_ckpt = './param/pareto_weight/03-25-18-43/ra'
+    args.weight_path = './param/pareto_weight/03-25-18-43/weight.npy'
     prefix = time.strftime('%m-%d-%H-%M')
     name = prefix + "-multi-agent.json"
-    args.log_dir = args.log_dir + name
+    args.agent_eval = args.agent_eval + name
     eval_(args)
-    # param_experiment_eval()
+
+
+if __name__ == '__main__':
+    agent_eval()
