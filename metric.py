@@ -272,7 +272,7 @@ def _show_pareto(args):
     files = os.listdir(args.rule_eval)
     log_list = ['/'.join([args.rule_eval, file]) for file in files]
     algo_name = [file.split('-')[-1].split('.')[0] for file in files]
-
+    SA_RULE = ["FIFO", "MS", "EDD", "CR"]
     new_name = []
     # 为了便于处理algo_name只保存了agent, FIFO, SQT等单个规则的关键词 因此需要加上R
     for i, algo in enumerate(algo_name):
@@ -280,8 +280,10 @@ def _show_pareto(args):
             new_name.append("MPPO")
         elif algo == "random":
             new_name.append("R-R")
-        else:
+        elif algo in SA_RULE:
             new_name.append(f"{algo}-R")
+        else:
+            new_name.append(f"R-{algo}")
     print(new_name)
     mark = ['o', 'v', '^', 's', 'p', 'x', 'd', 'X', '*', '+']
     c = color
