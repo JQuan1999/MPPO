@@ -1,9 +1,10 @@
-# author by 蒋权
 import numpy as np
 import os
 import uuid
 import json
 import argparse
+
+np.random.seed(1)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--init_job_num', type=int, default=0, help='initial job num in the system')
@@ -128,7 +129,7 @@ def generator_insert_job_info(data, args, new_job_key, new_job_format):
 
 def generator_data():
     args = parser.parse_args()
-    path = "../data/test4"
+    path = "../data/test"
 
     # jn = [10, 20, 20, 30, 30, 50]
     # mn = [5, 5, 10, 10, 20, 20]
@@ -183,7 +184,7 @@ def generator_data():
 
 def generate_single():
     args = parser.parse_args()
-    path = '../data/train2'
+    path = '../data/train'
     machine_key = "machine"
     machine_format = "machine{}"
     job_key = "job"
@@ -216,7 +217,7 @@ def generate_single():
 # 生成特定组合的数据
 def generate_spec_data():
     args = parser.parse_args()
-    path = '../data/train2'
+    path = '../data/train'
     machine_key = "machine"
     machine_format = "machine{}"
     job_key = "job"
@@ -262,4 +263,4 @@ def generate_spec_data():
 
 
 if __name__ == "__main__":
-    generate_spec_data()
+    generator_data()

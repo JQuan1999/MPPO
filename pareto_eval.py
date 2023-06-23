@@ -1,19 +1,33 @@
 import json
 import os
 import argparse
+import shutil
 import time
 import numpy as np
 import torch
 
-from env import PPO_ENV
-from agent import Sequence_Agent, Route_Agent
+from utils.env import PPO_ENV
+from utils.agent import Sequence_Agent, Route_Agent
 from utils.uniform_weight import cweight
 from utils.config import config
 from utils.utils import get_data, save_result, get_ckpt
 
 np.random.seed(1)
+torch.manual_seed(1)
 
 
+# 推理
+def agent_eval():
+    args = config()
+
+    # 设置具体的参数
+    # 例如
+    # args.sa_ckpt = ...
+
+    eval_(args)
+
+
+# 不同的参数组合推理
 def param_experiment_eval():
     args = config()
     Epoch_Bacth_Step = [[5, 64, 5],
@@ -25,43 +39,48 @@ def param_experiment_eval():
                         [15, 64, 15],
                         [15, 128, 5],
                         [15, 256, 10]]
-    ckpt_path = "./param/param_experiment/ckpt"
-    args.test_data = "./data/test4/j40_m20_n60"
-    # 保存评估结果的文件夹
-    logdir = "./log/param_experiment"
-    if not os.path.exists(logdir):
-        os.makedirs(logdir)
-
-    for param in Epoch_Bacth_Step:
+    # 设置args的参数
+    # 例如 args.test_data = './data/test'
+    args.test_data = "./data/test/j40_m20_n60" # 参数组合测试数据集
+    savedir = "./log/param_experiment" # 保存评估结果的文件夹
+    for i, param in enumerate(Epoch_Bacth_Step):
         # 设置参数路径
-        name = "E{}_B{}_S{}".format(param[0], param[1], param[2])
-        dirname = "/".join([ckpt_path, name])
-        args.sa_ckpt = dirname + "/" + "sa"
-        args.ra_ckpt = dirname + "/" + "sa"
-        # 保存评估结果的文件路径
-        args.agent_eval = logdir + "/" + name
-        # 参考向量文件
-        args.weight_path = dirname + "/" + "weight.npy"
-        eval_(args)
+        name = "E{}_B{}_S{}".format(param[0], param[1], param[2]) # 参数组合的名称
+        ckptdir = "/".join([args.param_comb_ckpt, name])
+        assert os.path.exists(ckptdir), f'dirname: {ckptdir} is not existed'
 
-    print('eval end!!!')
+        args.sa_ckpt_path = ckptdir + "/" + "sa" # sa参数路径
+        args.ra_ckpt_path = ckptdir + "/" + "ra" # ra参数路径
+        args.weight_path = ckptdir + "/" + "weight.npy" # 权重向量
+        args.agent_eval_savedir = savedir
+        filename = name + ".json"
+        if i == 0:
+            eval_(args, True, filename)
+        else:
+            eval_(args, False, filename)
 
 
-def eval_(args):
+def eval_(args, clear=True, filename="multi-agent.json"):
     print(args)
     # 获取最后一个文件名,根据最后一个文件名判断是对所有规模的调度问题进行对比还是只对比单个
     last_dir = args.test_data.split('/')[-1]
     if last_dir[:4] == "test":
         test_datas = ['/'.join([args.test_data, insdir, 't0.json']) for insdir in os.listdir(args.test_data)]
     else:
-        test_datas = ['/'.join([args.test_data, 't2.json'])]
+        test_datas = ['/'.join([args.test_data, 't0.json'])]
+
+    if not os.path.exists(args.agent_eval_savedir):
+        os.makedirs(args.agent_eval_savedir)
+    elif clear:
+        shutil.rmtree(args.agent_eval_savedir)  # 清空历史结果
+        os.makedirs(args.agent_eval_savedir)
 
     # 加载参考向量和每个参考向量对应的sa和ra的ckpt文件
     weight = np.load(args.weight_path)
     sa = Sequence_Agent(args)
     ra = Route_Agent(args)
-    sa_ckpt = get_ckpt(args.sa_ckpt)
-    ra_ckpt = get_ckpt(args.ra_ckpt)
+    sa_ckpt = get_ckpt(args.sa_ckpt_path)
+    ra_ckpt = get_ckpt(args.ra_ckpt_path)
 
     result = {}
     for index, data in enumerate(test_datas):
@@ -69,9 +88,9 @@ def eval_(args):
         data_name = data.split('/')[-2]
         begin = time.time()
         for i in range(weight.shape[0]):
-            sa.load(sa_ckpt[i])
-            ra.load(ra_ckpt[i])
-            env = PPO_ENV(data, args)
+            sa.load(sa_ckpt[i]) # load第i个参考向量对应的sa ckpt
+            ra.load(ra_ckpt[i]) # load第i个参考向量对应的ra ckpt
+            env = PPO_ENV(data, args) # 创建env环境
             w = weight[i].reshape(1, -1)
             cweight(w, env, ra, sa)
             sa_state, mach_index1, t = env.reset(ra)
@@ -104,25 +123,13 @@ def eval_(args):
             print(f'data {data_name} weight {weight[i].reshape(-1, ).tolist()} | obj1 = {obj[0]}, obj2 = {obj[1]}, obj2 = {obj[2]}')
             # print(f'a1 = {a1}\n a2 = {a2}')
         t = time.time() - begin
-        print(f'----------time = {t}------------')
         result[data_name] = {}
         result[data_name]["time"] = t
         result[data_name]["result"] = objs.tolist()
-    # save_result(result, args.agent_eval)
-    print('end')
-
-
-def agent_eval():
-    args = config()
-    args.test_data = './data/test4/j7_m5_n10/'  # 测试集
-    args.sa_ckpt = './param/pareto_weight/03-25-18-43/sa'
-    args.ra_ckpt = './param/pareto_weight/03-25-18-43/ra'
-    args.weight_path = './param/pareto_weight/03-25-18-43/weight.npy'
-    prefix = time.strftime('%m-%d-%H-%M')
-    name = prefix + "-multi-agent.json"
-    args.agent_eval = args.agent_eval + name
-    eval_(args)
+    save_result(result, args.agent_eval_savedir, filename)
+    print('----------end------------')
 
 
 if __name__ == '__main__':
-    agent_eval()
+    args = config()
+    eval_(args)

@@ -1,4 +1,3 @@
-# author by 蒋权
 import numpy as np
 from itertools import combinations
 from scipy.special import comb
@@ -50,18 +49,3 @@ def cweight(weight, env, sa, ra):
     sa.cweight(w)
     ra.cweight(w)
     return w
-
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    from mpl_toolkits.mplot3d import axes3d
-    fig = plt.figure(1)
-    ax = fig.gca(projection='3d')
-    # 110个权重向量,剔除不满足约束向量的大小为36
-    weight, size = init_weight(100, 3, 0.1)
-    print(size)
-    for i in range(size):
-        w = weight[i]
-        ax.plot([0, w[0]], [0, w[1]], [0, w[2]], linewidth=2, c='r')
-        ax.plot(w[0], w[1], w[2], '-o')
-    plt.pause(100)

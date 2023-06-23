@@ -1,13 +1,16 @@
 import numpy as np
 import os
 import time
-
-from agent import Sequence_Agent, Route_Agent
-from env import PPO_ENV
+import torch
+import shutil
+from utils.agent import Sequence_Agent, Route_Agent
+from utils.env import PPO_ENV
 from utils.config import config
 from utils.uniform_weight import init_weight, cweight
 from utils.utils import get_data, get_weight
 
+np.random.seed(1)
+torch.manual_seed(1)
 
 # 9种参数组合对比试验
 # id  Epoch   BatchSize   Step
@@ -20,7 +23,6 @@ from utils.utils import get_data, get_weight
 # 7    3(15)   1(64)      3(15)
 # 8    3(15)   2(128)     1(5)
 # 9    3(15)   3(256)     2(10)
-
 def param_experiment_train():
     args = config()
     Epoch_Bacth_Step = [
@@ -33,35 +35,33 @@ def param_experiment_train():
         [15, 64, 15],
         [15, 128, 5],
         [15, 256, 10]]
-    ckpt_path = "./param/param_experiment/ckpt"
-    if not os.path.exists(ckpt_path):
-        os.makedirs(ckpt_path)
+    if not os.path.exists(args.param_comb_ckpt):
+        os.makedirs(args.param_comb_ckpt)
 
-    args.sa_ckpt_path = ckpt_path
-    args.ra_ckpt_path = ckpt_path
     for param_comb in Epoch_Bacth_Step:
         args.epochs = param_comb[0]
         args.batch_size = param_comb[1]
         args.a_update_step = param_comb[2]
         args.c_update_step = param_comb[2]
-        name = "E{}_B{}_S{}".format(args.epochs, args.batch_size, param_comb[0])
-        dirname = '/'.join([ckpt_path, name])
+        name = "E{}_B{}_S{}".format(param_comb[0], param_comb[1], param_comb[2])
+        dirname = '/'.join([args.param_comb_ckpt, name]) # 参数组合ckpt保存文件夹
         if os.path.exists(dirname):
-            os.removedirs(dirname)
-        args.sa_ckpt_path = '/'.join([dirname, "sa"])
-        args.ra_ckpt_path = '/'.join([dirname, "ra"])
+            shutil.rmtree(dirname)
+            os.makedirs(dirname)
+        args.sa_ckpt_path = '/'.join([dirname, "sa"]) # sa ckpt文件路径
+        args.ra_ckpt_path = '/'.join([dirname, "ra"]) # ra ckpt文件路径
         train(args)
-    print('train end')
+    print('param combinations train end')
 
 
 def train(args):
-    args.train_data = "./data/train2/j30_m20_n40"
+    if not os.path.exists(args.sa_ckpt_path):
+        os.makedirs(args.sa_ckpt_path)
+    if not os.path.exists(args.ra_ckpt_path):
+        os.makedirs(args.ra_ckpt_path)
     train_data = get_data(args.train_data)
     train_data_size = len(train_data)
 
-    date = time.strftime('%m-%d-%H-%M')
-    args.sa_ckpt_path = '/'.join([args.sa_ckpt_path, date, 'sa'])
-    args.ra_ckpt_path = '/'.join([args.ra_ckpt_path, date, 'ra'])
     weight, size = get_weight(args)
     sa = Sequence_Agent(args)
     ra = Route_Agent(args)
@@ -72,7 +72,6 @@ def train(args):
             step = 0
             done2 = False
             inst = train_data[(i * args.epochs + epoch) % train_data_size]
-            # inst = train_data[0]
             env = PPO_ENV(inst, args)
             cweight(w, env, sa, ra)
             sa_state, mach_index1, t = env.reset(ra)
@@ -111,19 +110,17 @@ def train(args):
 
                 if done1:
                     break
-            # print(env.cnt.tolist())
-            print("sa_action = ", a1)
-            print("ra_action = ", a2)
+            # print("sa_action = ", a1)
+            # print("ra_action = ", a2)
             obj = env.cal_objective()
             inst = inst.split('/')[-1]
             print(
                 f'inst {inst}, weight{w.reshape(-1, ).tolist()}, epoch{epoch} | obj1 = {obj[0]}, obj2 = {obj[1]}, obj2 = {obj[2]}')
         sa.save(weight=w)
         ra.save(weight=w)
-    # sa.show_loss()
-    # ra.show_loss()
+    print('--------end-------')
 
 
 if __name__ == "__main__":
-    args = config()
-    train(args)
+    # 在训练之前设置好训练参数
+    param_experiment_train()

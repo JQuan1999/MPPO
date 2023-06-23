@@ -6,16 +6,21 @@ from .uniform_weight import init_weight
 from .generator_data import NoIndentEncoder
 
 
-def save_result(obj_record, path):
+def save_result(obj_record, dpath, filename=None):
+    assert os.path.exists(dpath), f'path:{dpath} is not existed'
+    assert os.path.isdir(dpath), f'path"{dpath} is not a dir'
     result = json.dumps(obj_record, indent=2, sort_keys=True, cls=NoIndentEncoder)
-    if os.path.isdir(path):
-        name = time.strftime('%m-%d-%H-%M') + '.json'
-        path = '/'.join([path, name])
+    if filename is None:
+        filename = time.strftime('%m-%d-%H-%M') + '.json'
+    path = '/'.join([dpath, filename])
     with open(path, 'w') as f:
         f.write(result)
 
 
 def get_data(dpath):
+    """
+        dpath: 数据集的路径 可以为文件夹或文件
+    """
     if os.path.isdir(dpath):
         files = os.listdir(dpath)
         test_data = []

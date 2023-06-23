@@ -1,4 +1,3 @@
-# author by 蒋权
 import json
 import numpy as np
 

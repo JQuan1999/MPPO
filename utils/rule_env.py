@@ -1,7 +1,6 @@
-# author by 蒋权
 import numpy as np
 
-from env import PPO_ENV
+from .env import PPO_ENV
 
 
 class RULE_ENV(PPO_ENV):

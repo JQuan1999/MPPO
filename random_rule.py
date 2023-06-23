@@ -1,16 +1,20 @@
 # author by 蒋权
 import os
+import shutil
 import time
 import numpy as np
+import torch
+
 from utils.config import config
 from utils.rule_env import RULE_ENV
 from utils.utils import save_result
 
 
 np.random.seed(1)
+torch.manual_seed(1)
 
 
-def _random_eval(sa_action, ra_action, args, result_file):
+def _random_eval(sa_action, ra_action, args, savedir, result_file):
     assert type(sa_action) is list, f"sa action {sa_action} is not a list"
     assert type(ra_action) is list, f"ra action {ra_action} is not a list"
 
@@ -21,8 +25,12 @@ def _random_eval(sa_action, ra_action, args, result_file):
 
     weight = np.load(args.weight_path)
     size = weight.shape[0]
-    test_datas = ['/'.join([args.test_data, insdir, 't0.json']) for insdir in os.listdir(args.test_data)]
-
+    # 获取最后一个文件名,根据最后一个文件名判断是对所有规模的调度问题进行对比还是只对比单个
+    last_dir = args.test_data.split('/')[-1]
+    if last_dir[:4] == "test":
+        test_datas = ['/'.join([args.test_data, insdir, 't0.json']) for insdir in os.listdir(args.test_data)]
+    else:
+        test_datas = ['/'.join([args.test_data, 't0.json'])]
     result = {}
 
     for index, data in enumerate(test_datas):
@@ -59,19 +67,25 @@ def _random_eval(sa_action, ra_action, args, result_file):
         result[data_name] = {}
         result[data_name]["time"] = t
         result[data_name]["result"] = objs.tolist()
-    save_result(result, result_file)
-    print('end')
+    save_result(result, savedir, result_file)
+    print('----------end------------')
 
 
+# 部分随机组合
 def part_random():
     args = config()
-    args.weight_path = './param/pareto_weight/03-25-18-43/weight.npy' # 要对比的agent参数对应的权重系数保存路径
-    args.test_data = "./data/test4/" # 测试集
-    date = time.strftime('%m-%d-%H-%M')
-    # 调度规则推理结果存储路径
-    args.rule_eval = "./log/eval/rule/{}/".format(date)
-    if not os.path.exists(args.rule_eval):
-        os.makedirs(args.rule_eval)
+
+    # 设置具体的参数
+    # 例如
+    # args.test_data = ...
+    args.test_data = './data/test'
+    # 清空args.rule_eval文件夹
+    if not os.path.exists(args.rule_eval_savedir):
+        os.makedirs(args.rule_eval_savedir)
+    else:
+        shutil.rmtree(args.rule_eval_savedir)
+        os.makedirs(args.rule_eval_savedir)
+
     sa_action = [i for i in range(args.sa_action_space)]
     ra_action = [i for i in range(args.sa_action_space)]
     sa_action_name = ['FIFO', 'MS', 'EDD', 'CR']
@@ -89,29 +103,32 @@ def part_random():
             else:
                 action_name = ra_action_name[c_a]
             # 保存的文件名
-            prefix = time.strftime('%m-%d-%H-%M')
-            name = prefix + f"-random-{action_name}.json"
-            # 最终的保存路径
-            result_file = args.rule_eval + name
+            result_file = f"random-{action_name}.json"
             if i == 0:
-                _random_eval([c_a], ra_action, args, result_file)
+                _random_eval([c_a], ra_action, args, args.rule_eval_savedir, result_file)
             else:
-                _random_eval(sa_action, [c_a], args, result_file)
-            print('------------------------')
+                _random_eval(sa_action, [c_a], args, args.rule_eval_savedir, result_file)
 
 
+# 完全随机组合
 def random_eval():
     args = config()
-    args.weight_path = './param/pareto_weight/03-25-18-43/weight.npy' # 要对比的agent参数对应的权重系数保存路径
-    args.test_data = "./data/test4"
+    # 设置具体的参数
+    # 例如
+    # args.test_data = ...
+    args.test_data = './data/test'
+    # 清空args.rand_eval文件夹
+    if not os.path.exists(args.randrule_eval_savedir):
+        os.makedirs(args.randrule_eval_savedir)
+    else:
+        shutil.rmtree(args.randrule_eval_savedir)
+        os.makedirs(args.randrule_eval_savedir)
+
     sa_action = [i for i in range(args.sa_action_space)]
     ra_action = [i for i in range(args.sa_action_space)]
-    prefix = time.strftime('%m-%d-%H-%M')
-    name = prefix + "-multi-random.json"
-    result_file = './log/eval/rule/03-25-20-02/' + name
-    _random_eval(sa_action, ra_action, args, result_file)
-    print('----------end------------')
+    _random_eval(sa_action, ra_action, args, args.randrule_eval_savedir, "multi-random.json")
 
 
 if __name__ == '__main__':
+    part_random()
     random_eval()
